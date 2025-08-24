@@ -2,6 +2,12 @@
 
 ## Exploring the `__mist__.json` with jq
 
+To list all top-level keys,
+
+```shell
+jq 'keys' __mist__.json > keys.json
+```
+
 To list all unique `stmt_type`,
 
 ```powershell
@@ -18,4 +24,33 @@ To list all unique `token_type`,
 
 ```powershell
 jq -C '.. | select(objects | has(""token_type"")) | .token_type' '__mist__.json' | Sort-Object | Get-Unique
+```
+## Extracting all mists
+
+Fish shell only
+
+```shell
+set mist_names $(jq -r 'keys | .[]' __mist__.json)
+
+for mist_name in $mist_names 
+  echo "Extracting $mist_name";
+  jq '. | with_entries(select(.key | startswith("'"$mist_name"'")))' __mist__.json | uvx compact-json --output "$mist_name.json" -
+end
+```
+
+Other related commands
+
+```shell
+set mist_name "adeline_eight_hearts.mist"
+
+for mist_name in $mist_names 
+  echo "Processing $mist_name";
+  ./target/debug/mist-transpiler.exe "./mists/$mist_name.json" > "./output/$mist_name.txt";
+end
+
+for mist_name in $mist_names
+  echo "Checking $mist_name";
+  head -n2 "./output/$mist_name.txt";
+  echo "";
+end
 ```
