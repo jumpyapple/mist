@@ -233,7 +233,9 @@ fn main() {
         Ok(data) => {
             let result: Result<MistsContainer> = serde_json::from_str(data.as_str());
             if result.is_ok() {
-                println!("Successfully parsed 'day_zero.mist.json'");
+                println!("Successfully parsed '{}'", args[1]);
+                let container = result.unwrap();
+                println!("  Found {} mists", container.programs.len());
             } else {
                 println!("Error: Failed to parse file 'day_zero.mist.json': {:?}", result.err());
             }
