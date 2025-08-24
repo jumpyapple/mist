@@ -1,3 +1,4 @@
+use core::fmt;
 use std::collections::HashMap;
 use std::io;
 use std::fs;
@@ -13,7 +14,25 @@ struct MistsContainer {
     programs: Vec<Statement>
 }
 
-#[derive(Serialize, Deserialize)]
+impl fmt::Display for MistsContainer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for stmt in &self.programs {
+            stmt.fmt_indented(f, 0);
+            match stmt {
+                Statement::Block(s) => write!(f, "")?,
+                Statement::Expr(s) => write!(f, ";\n")?,
+                Statement::Function(s) => write!(f, "\n")?,
+                Statement::Var(s) => write!(f, "\n")?,
+                Statement::Simultaneous(s) => write!(f, "\n")?,
+                Statement::Free(s) => write!(f, ";\n")?,
+                Statement::If(s) => write!(f, "\n")?,
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 enum TokenType {
     #[serde(rename = "Identifier")]
     Identifier,
@@ -72,6 +91,22 @@ enum Statement {
     If(IfStatement),
 }
 
+impl Statement {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, indent: usize) -> std::fmt::Result {
+        let current_indent = " ".repeat(indent * 4);
+        
+        match self {
+            Statement::Block(stmt) => stmt.fmt_indented(f, indent),
+            Statement::Expr(stmt) => stmt.fmt_indented(f, indent),
+            Statement::Function(stmt) => stmt.fmt_indented(f, indent),
+            Statement::Var(stmt) => stmt.fmt_indented(f, indent),
+            Statement::Simultaneous(stmt) => stmt.fmt_indented(f, indent),
+            Statement::Free(stmt) => stmt.fmt_indented(f, indent),
+            Statement::If(stmt) => stmt.fmt_indented(f, indent),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 enum ExpressionType {
     #[serde(rename = "Call")]
@@ -96,6 +131,19 @@ enum Expression {
     Binary(BinaryExpression),
 }
 
+impl Expression {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, indent: usize) -> std::fmt::Result {
+        let current_indent = " ".repeat(indent * 4);
+        
+        match self {
+            Expression::Call(exp) => exp.fmt_indented(f, indent),
+            Expression::Named(exp) => exp.fmt_indented(f, indent),
+            Expression::Literal(exp) => exp.fmt_indented(f, indent),
+            Expression::Unary(exp) => exp.fmt_indented(f, indent),
+            Expression::Binary(exp) => exp.fmt_indented(f, indent),
+        }
+    }
+}
 
 
 #[derive(Serialize, Deserialize)]
@@ -106,10 +154,28 @@ struct IdentifierToken {
     default_value: Option<String>
 }
 
+impl IdentifierToken {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, indent: usize) -> std::fmt::Result {
+        let current_indent = " ".repeat(indent * 4);
+        
+        match &self.default_value {
+            None => write!(f, "{}", self.value),
+            Some(val) => write!(f, "{} = {}", self.value, val)
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct NumberToken {
     token_type: TokenType, // Number
+    #[serde(rename = "Value")] // That sneaky little upper case!
     value: f64
+}
+
+impl NumberToken {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, _indent: usize) -> std::fmt::Result {
+        write!(f, "what happejlaskjf{:.2}", self.value)
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -118,9 +184,25 @@ struct StringToken {
     value: String
 }
 
+impl StringToken {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, _indent: usize) -> std::fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct BooleanToken {
     token_type: TokenType, // True or False
+}
+
+impl BooleanToken {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, _indent: usize) -> std::fmt::Result {
+        match self.token_type {
+            TokenType::BooleanTrue => write!(f, "true"),
+            TokenType::BooleanFalse => write!(f, "false"),
+            _ => write!(f, ""),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -128,9 +210,21 @@ struct DoubleEqualToken {
     token_type: TokenType, // DoubleEqual (==)
 }
 
+impl DoubleEqualToken {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, _indent: usize) -> std::fmt::Result {
+        write!(f, "==")
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct MinusToken {
     token_type: TokenType, // Minus (-)
+}
+
+impl MinusToken {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, _indent: usize) -> std::fmt::Result {
+        write!(f, "-")
+    }
 }
 
 
@@ -141,6 +235,15 @@ struct VarStatement {
     initializer: Expression,
 }
 
+impl VarStatement {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, indent: usize) -> std::fmt::Result {
+        let current_indent = " ".repeat(indent * 4);
+        write!(f, "{}var ", current_indent);
+        self.name.fmt_indented(f, 0);
+        write!(f, " = ");
+        self.initializer.fmt_indented(f, 0)
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 struct FunctionStatement {
@@ -151,11 +254,44 @@ struct FunctionStatement {
     resolve: String
 }
 
+impl FunctionStatement {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, indent: usize) -> std::fmt::Result {
+        let current_indent = " ".repeat(indent * 4);
+        write!(f, "{}function ", current_indent)?;
+        self.name.fmt_indented(f, indent)?;
+        write!(f, "(")?;
+        self.params.iter().map(|item| item.fmt_indented(f, indent));
+        writeln!(f, ")")?;
+        self.body.fmt_indented(f, indent)
+    }
+}
+
 
 #[derive(Serialize, Deserialize)]
 struct BlockStatement {
     stmt_type: StatementType, // Block
     stmts: Vec<Statement>
+}
+
+impl BlockStatement {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, indent: usize) -> std::fmt::Result {
+        let current_indent = " ".repeat(indent * 4);
+        writeln!(f, "{}{{", current_indent);
+        // self.stmts.iter().map(|item| item.fmt_indented(f, indent + 1));
+        if self.stmts.len() == 0 {
+            write!(f, "stmts has zero length!!!");
+        }
+        for stmt in &self.stmts {
+            stmt.fmt_indented(f, indent + 1);
+            match stmt {
+                Statement::Expr(_) => { writeln!(f, ";"); }
+                Statement::Var(_) => { writeln!(f, ";"); }
+                Statement::Free(_) => { writeln!(f, ";"); }
+                _ => {}
+            }
+        }
+        writeln!(f, "{}}}", current_indent)
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -164,10 +300,33 @@ struct SimultaneousStatement {
     body: BlockStatement
 }
 
+impl SimultaneousStatement {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, indent: usize) -> std::fmt::Result {
+        let current_indent = " ".repeat(indent * 4);
+        writeln!(f, "{}simultaneous ", current_indent);
+        self.body.fmt_indented(f, indent)
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct FreeStatement {
     stmt_type: StatementType, // Free
     stmt: Box<Statement>
+}
+
+impl FreeStatement {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, indent: usize) -> std::fmt::Result {
+        let current_indent = " ".repeat(indent * 4);
+        write!(f, "{}free ", current_indent);
+        match self.stmt.as_ref() {
+            Statement::Block(_) => { 
+                writeln!(f, "{{");
+                self.stmt.as_ref().fmt_indented(f, indent);
+                writeln!(f, "}}")
+            },
+            _ => self.stmt.fmt_indented(f, 0),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -179,10 +338,31 @@ struct IfStatement {
     else_branch: Option<BlockStatement>
 }
 
+impl IfStatement {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, indent: usize) -> std::fmt::Result {
+        let current_indent = " ".repeat(indent * 4);
+        write!(f, "{}if (", current_indent);
+        self.condition.fmt_indented(f, 0);
+        writeln!(f, ")");
+        self.then_branch.fmt_indented(f, indent);
+        if self.else_branch.is_some() {
+            writeln!(f, "{}else", current_indent);
+            self.else_branch.as_ref().unwrap().fmt_indented(f, indent);
+        }
+        Ok(())
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct ExpressionStatement {
     stmt_type: StatementType, // Expr
     expr: Expression
+}
+
+impl ExpressionStatement {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, indent: usize) -> std::fmt::Result {
+        self.expr.fmt_indented(f, indent)
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -192,10 +372,31 @@ struct CallExpression {
     args: Vec<Expression>
 }
 
+impl CallExpression {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, indent: usize) -> std::fmt::Result {
+        self.call.fmt_indented(f, indent);
+        write!(f, "(");
+        for (index, arg) in self.args.iter().enumerate() {
+            arg.fmt_indented(f, 0);
+            if index != self.args.len() -1 {
+                write!(f, ", ");
+            }
+        }
+        write!(f, ")")
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct NamedExpression {
     expr_type: ExpressionType, // Named
     name: IdentifierToken
+}
+
+impl NamedExpression {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, indent: usize) -> std::fmt::Result {
+        let current_indent = " ".repeat(indent * 4);
+        write!(f, "{}{}", current_indent, self.name.value)
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -204,11 +405,46 @@ struct LiteralExpression {
     value: Token
 }
 
+impl LiteralExpression {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, indent: usize) -> std::fmt::Result {
+        let current_indent = " ".repeat(indent * 4);
+        write!(f, "{}", current_indent);
+        match &self.value {
+            Token::Identifier(t) => write!(f, "{}", t.value),
+            Token::Number(t) => write!(f, "{}", t.value),
+            Token::String(t) => {
+                write!(f, "\"");
+                t.fmt_indented(f, indent);
+                write!(f, "\"")
+            },
+            Token::Boolean(t) => match t.token_type {
+                TokenType::BooleanTrue => write!(f, "true"),
+                TokenType::BooleanFalse => write!(f, "false"),
+                _ => write!(f, "Unknown boolean value. Expect BooleanTrue or BooleanFalse, but found {:?}", t.token_type),
+            },
+            Token::DoubleEqual(t) => write!(f, "=="),
+            Token::Minus(t) => write!(f, "-"),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct UnaryExpression {
     expr_type: ExpressionType, // Unary
     operator: Token,
     right: Box<Expression> // TODO: Other variant may show up?
+}
+
+impl UnaryExpression {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, indent: usize) -> std::fmt::Result {
+        match &self.operator {
+            Token::Minus(t) => {
+                write!(f, "-");
+                self.right.fmt_indented(f, indent)
+            },
+            _ => write!(f, "Unkown operator type. Expect Minus"),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -219,23 +455,37 @@ struct BinaryExpression {
     right: Box<Expression>
 }
 
+impl BinaryExpression {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, indent: usize) -> std::fmt::Result {
+        match &self.operator {
+            Token::DoubleEqual(t) => {
+                self.left.fmt_indented(f, indent);
+                write!(f, "==");
+                self.right.fmt_indented(f, indent)
+            },
+            _ => write!(f, "unkown token type (expected DoubleEqual)"),
+        }
+    }
+}
+
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() != 2{
         println!("usage: {} <mist-file-path>", args[0]);
-        return;
+        // return;
     }
 
-    let file_path = args[1].to_string();
+    // let file_path = args[1].to_string();
+
+    let file_path = "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Fields of Mistria\\day_zero.mist.json";
     let result = fs::read_to_string(file_path);
     match result {
         Ok(data) => {
             let result: Result<MistsContainer> = serde_json::from_str(data.as_str());
             if result.is_ok() {
-                println!("Successfully parsed '{}'", args[1]);
-                let container = result.unwrap();
-                println!("  Found {} mists", container.programs.len());
+                println!("Successfully parsed '{}'", file_path);
+                println!("{}", result.unwrap());
             } else {
                 println!("Error: Failed to parse file 'day_zero.mist.json': {:?}", result.err());
             }
