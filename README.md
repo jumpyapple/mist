@@ -8,22 +8,24 @@ To list all top-level keys,
 jq 'keys' __mist__.json > keys.json
 ```
 
-To list all unique `stmt_type`,
+To list all unique `stmt_type`, `expr_type` and `token_type`,
 
 ```powershell
-jq -C '.. | select(objects | has(""stmt_type"")) | .stmt_type' '__mist__.json' | Sort-Object | Get-Unique
+$filename = '__mist__.json'
+jq -C '.. | select(objects | has(""stmt_type"")) | .stmt_type' $filename | Sort-Object | Get-Unique
+jq -C '.. | select(objects | has(""expr_type"")) | .expr_type' $filename | Sort-Object | Get-Unique
+jq -C '.. | select(objects | has(""token_type"")) | .token_type' $filename | Sort-Object | Get-Unique
 ```
 
 To list all unique `expr_type`,
 
 ```powershell
-jq -C '.. | select(objects | has(""expr_type"")) | .expr_type' '__mist__.json' | Sort-Object | Get-Unique
 ```
 
 To list all unique `token_type`,
 
 ```powershell
-jq -C '.. | select(objects | has(""token_type"")) | .token_type' '__mist__.json' | Sort-Object | Get-Unique
+
 ```
 ## Extracting all mists
 

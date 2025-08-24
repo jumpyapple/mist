@@ -63,8 +63,12 @@ enum TokenType {
     BooleanFalse,
     #[serde(rename = "DoubleEqual")]
     DoubleEqual,
+    #[serde(rename = "LessEqual")]
+    LessEqual,
     #[serde(rename = "Minus")]
     Minus,
+    #[serde(rename = "And")]
+    And,
 }
 
 // This is not a direct map.
@@ -147,6 +151,8 @@ enum ExpressionType {
     Unary,
     #[serde(rename = "Binary")]
     Binary,
+    #[serde(rename = "Logical")]
+    Logical,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -156,7 +162,7 @@ enum Expression {
     Named(NamedExpression),
     Literal(LiteralExpression),
     Unary(UnaryExpression),
-    Binary(BinaryExpression),
+    Binary(BinaryExpression), // We are using this for Logical as well
 }
 
 impl Expression {
@@ -184,7 +190,9 @@ impl TypeOnlyToken {
             TokenType::BooleanTrue => write!(f, "true"),
             TokenType::BooleanFalse => write!(f, "false"),
             TokenType::DoubleEqual => write!(f, "=="),
+            TokenType::LessEqual => write!(f, "<="),
             TokenType::Minus => write!(f, "-"),
+            TokenType::And => write!(f, "&&"),
             _ => write!(f, "([!!] Unkown type for TypeOnlyToken. found {:?})", self.token_type),
         }
     }
@@ -329,14 +337,16 @@ struct FreeStatement {
 impl FreeStatement {
     fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, indent: usize) -> std::fmt::Result {
         let current_indent = " ".repeat(indent * 4);
-        write!(f, "{}free ", current_indent);
+        write!(f, "{}free", current_indent);
         match self.stmt.as_ref() {
             Statement::Block(_) => { 
-                writeln!(f, "{{");
-                self.stmt.as_ref().fmt_indented(f, indent);
-                writeln!(f, "}}")
+                write!(f, "\n");
+                self.stmt.as_ref().fmt_indented(f, indent)
             },
-            _ => self.stmt.fmt_indented(f, 0),
+            _ => {
+                write!(f, " ");
+                self.stmt.fmt_indented(f, 0)
+            },
         }
     }
 }
@@ -469,6 +479,20 @@ impl BinaryExpression {
                     write!(f, " ");
                     self.right.fmt_indented(f, 0)
                 },
+                TokenType::LessEqual => {
+                    self.left.fmt_indented(f, 0);
+                    write!(f, " ");
+                    t.fmt_indented(f, 0);
+                    write!(f, " ");
+                    self.right.fmt_indented(f, 0)
+                },
+                TokenType::And => {
+                    self.left.fmt_indented(f, 0);
+                    write!(f, " ");
+                    t.fmt_indented(f, 0);
+                    write!(f, " ");
+                    self.right.fmt_indented(f, 0)
+                },
                 _ => write!(f, "([!!] Unknown operator for a BinaryExpression. Found {:?}", t.token_type)
             },
             Token::ValueToken(t) => write!(f, "([!!] ValueToken found as operator for the BinaryExpression.")
@@ -485,7 +509,7 @@ fn main() {
     }
 
     // let file_path = args[1].to_string();
-    let file_path = ".\\mists\\day_zero.mist.json";
+    let file_path = ".\\mists\\balor_six_hearts.mist.json";
     
     let result = fs::read_to_string(file_path.clone());
     match result {
