@@ -31,8 +31,6 @@ impl Expression {
         f: &mut std::fmt::Formatter<'_>,
         indent: usize,
     ) -> std::fmt::Result {
-        let current_indent = " ".repeat(indent * 4);
-
         match self {
             Expression::Call(exp) => exp.fmt_indented(f, indent),
             Expression::Named(exp) => exp.fmt_indented(f, indent),
@@ -58,12 +56,12 @@ impl CallExpression {
         f: &mut std::fmt::Formatter<'_>,
         indent: usize,
     ) -> std::fmt::Result {
-        self.call.fmt_indented(f, indent);
-        write!(f, "(");
+        self.call.fmt_indented(f, indent)?;
+        write!(f, "(")?;
         for (index, arg) in self.args.iter().enumerate() {
-            arg.fmt_indented(f, 0);
+            arg.fmt_indented(f, 0)?;
             if index != self.args.len() - 1 {
-                write!(f, ", ");
+                write!(f, ", ")?;
             }
         }
         write!(f, ")")
@@ -84,7 +82,7 @@ impl NamedExpression {
         indent: usize,
     ) -> std::fmt::Result {
         let current_indent = " ".repeat(indent * 4);
-        write!(f, "{}", current_indent);
+        write!(f, "{}", current_indent)?;
         self.name.fmt_indented(f, indent)
     }
 }
@@ -103,7 +101,7 @@ impl LiteralExpression {
         indent: usize,
     ) -> std::fmt::Result {
         let current_indent = " ".repeat(indent * 4);
-        write!(f, "{}", current_indent);
+        write!(f, "{}", current_indent)?;
         self.value.fmt_indented(f, indent)
     }
 }
@@ -114,23 +112,23 @@ impl LiteralExpression {
 pub struct UnaryExpression {
     expr_type: ExpressionType, // Unary
     operator: Token,
-    right: Box<Expression>, // TODO: Other variant may show up?
+    right: Box<Expression>,
 }
 
 impl UnaryExpression {
     pub(crate) fn fmt_indented(
         &self,
         f: &mut std::fmt::Formatter<'_>,
-        indent: usize,
+        _indent: usize,
     ) -> std::fmt::Result {
         match &self.operator {
             Token::TypeOnlyToken(t) => match t.token_type {
                 TokenType::Minus => {
-                    t.fmt_indented(f, 0);
+                    t.fmt_indented(f, 0)?;
                     self.right.fmt_indented(f, 0)
                 }
                 TokenType::Bang => {
-                    t.fmt_indented(f, 0);
+                    t.fmt_indented(f, 0)?;
                     self.right.fmt_indented(f, 0)
                 }
                 _ => write!(
@@ -139,11 +137,11 @@ impl UnaryExpression {
                     t.token_type
                 ),
             },
-            Token::ValueToken(t) => write!(
+            Token::ValueToken(_) => write!(
                 f,
                 "([!!] ValueToken found as operator for the UnaryExpression."
             ),
-            Token::IdentifierWithDefaultValueToken(t) => write!(
+            Token::IdentifierWithDefaultValueToken(_) => write!(
                 f,
                 "([!!] IdentifierWithDefaultValueToken found as operator for the UnaryExpression."
             ),
@@ -163,40 +161,40 @@ impl BinaryExpression {
     pub(crate) fn fmt_indented(
         &self,
         f: &mut std::fmt::Formatter<'_>,
-        indent: usize,
+        _indent: usize,
     ) -> std::fmt::Result {
-        self.left.fmt_indented(f, 0);
-        write!(f, " ");
+        self.left.fmt_indented(f, 0)?;
+        write!(f, " ")?;
 
         match &self.operator {
             Token::TypeOnlyToken(t) => match t.token_type {
-                TokenType::DoubleEqual => t.fmt_indented(f, 0),
-                TokenType::BangEqual => t.fmt_indented(f, 0),
-                TokenType::LessEqual => t.fmt_indented(f, 0),
-                TokenType::Less => t.fmt_indented(f, 0),
-                TokenType::GreaterEqual => t.fmt_indented(f, 0),
-                TokenType::Greater => t.fmt_indented(f, 0),
-                TokenType::And => t.fmt_indented(f, 0),
-                TokenType::Plus => t.fmt_indented(f, 0),
-                TokenType::Minus => t.fmt_indented(f, 0),
-                TokenType::Star => t.fmt_indented(f, 0),
-                TokenType::Slash => t.fmt_indented(f, 0),
+                TokenType::DoubleEqual => t.fmt_indented(f, 0)?,
+                TokenType::BangEqual => t.fmt_indented(f, 0)?,
+                TokenType::LessEqual => t.fmt_indented(f, 0)?,
+                TokenType::Less => t.fmt_indented(f, 0)?,
+                TokenType::GreaterEqual => t.fmt_indented(f, 0)?,
+                TokenType::Greater => t.fmt_indented(f, 0)?,
+                TokenType::And => t.fmt_indented(f, 0)?,
+                TokenType::Plus => t.fmt_indented(f, 0)?,
+                TokenType::Minus => t.fmt_indented(f, 0)?,
+                TokenType::Star => t.fmt_indented(f, 0)?,
+                TokenType::Slash => t.fmt_indented(f, 0)?,
                 _ => write!(
                     f,
                     "([!!] Unknown operator for a BinaryExpression. Found {:?}",
                     t.token_type
-                ),
+                )?,
             },
-            Token::ValueToken(t) => write!(
+            Token::ValueToken(_) => write!(
                 f,
                 "([!!] ValueToken found as operator for the BinaryExpression."
-            ),
-            Token::IdentifierWithDefaultValueToken(t) => write!(
+            )?,
+            Token::IdentifierWithDefaultValueToken(_) => write!(
                 f,
                 "([!!] IdentifierWithDefaultValueToken found as operator for the BinaryExpression."
-            ),
+            )?,
         };
-        write!(f, " ");
+        write!(f, " ")?;
         self.right.fmt_indented(f, 0)
     }
 }
@@ -215,9 +213,9 @@ impl AssignExpression {
         indent: usize,
     ) -> std::fmt::Result {
         let current_indent = " ".repeat(indent * 4);
-        write!(f, "{}", current_indent);
-        self.name.fmt_indented(f, 0);
-        write!(f, " = ");
+        write!(f, "{}", current_indent)?;
+        self.name.fmt_indented(f, 0)?;
+        write!(f, " = ")?;
         self.value.fmt_indented(f, 0)
     }
 }
@@ -235,8 +233,8 @@ impl GroupingExpression {
         indent: usize,
     ) -> std::fmt::Result {
         let current_indent = " ".repeat(indent * 4);
-        write!(f, "{}(", current_indent);
-        self.expr.fmt_indented(f, 0);
+        write!(f, "{}(", current_indent)?;
+        self.expr.fmt_indented(f, 0)?;
         write!(f, ")")
     }
 }

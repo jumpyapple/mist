@@ -1,6 +1,5 @@
 use crate::expressions::Expression;
-use serde::de::{Error, IntoDeserializer};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum TokenType {
@@ -43,8 +42,6 @@ impl Token {
         f: &mut std::fmt::Formatter<'_>,
         indent: usize,
     ) -> std::fmt::Result {
-        let current_indent = " ".repeat(indent * 4);
-
         match self {
             Token::TypeOnlyToken(t) => t.fmt_indented(f, indent),
             Token::ValueToken(t) => t.fmt_indented(f, indent),
@@ -108,10 +105,8 @@ impl ValueToken {
     pub(crate) fn fmt_indented(
         &self,
         f: &mut std::fmt::Formatter<'_>,
-        indent: usize,
+        _indent: usize,
     ) -> std::fmt::Result {
-        let current_indent = " ".repeat(indent * 4);
-
         match self.token_type {
             TokenType::Identifier => match &self.value {
                 Value::StringValue(val) => write!(f, "{}", val),
@@ -159,16 +154,14 @@ impl IdentifierWithDefaultValueToken {
     pub(crate) fn fmt_indented(
         &self,
         f: &mut std::fmt::Formatter<'_>,
-        indent: usize,
+        _indent: usize,
     ) -> std::fmt::Result {
-        let current_indent = " ".repeat(indent * 4);
-
         match self.token_type {
             TokenType::Identifier => {
-                write!(f, "{} = ", self.value);
+                write!(f, "{} = ", self.value)?;
                 match &self.default_value {
                     DefaultValue::ExpressionDefault(exp) => exp.fmt_indented(f, 0),
-                    DefaultValue::NullStringDefault(val) => write!(f, "null"),
+                    DefaultValue::NullStringDefault(_) => write!(f, "null"),
                 }
             }
             _ => write!(
@@ -192,10 +185,8 @@ impl FunctionParameterToken {
     pub(crate) fn fmt_indented(
         &self,
         f: &mut std::fmt::Formatter<'_>,
-        indent: usize,
+        _indent: usize,
     ) -> std::fmt::Result {
-        let current_indent = " ".repeat(indent * 4);
-
         match self {
             FunctionParameterToken::IdentifierOnly(exp) => exp.fmt_indented(f, 0),
             FunctionParameterToken::IdentifierWithDefault(exp) => exp.fmt_indented(f, 0),

@@ -1,6 +1,5 @@
 use chumsky::prelude::*;
 use logos::Logos;
-use std::fs;
 
 #[derive(Logos, Clone, PartialEq, Debug)]
 #[logos(skip r"[ \t\r\n\f]+")]
@@ -23,6 +22,8 @@ enum Token {
     Function,
     #[token("var")]
     Var,
+    #[token("return")]
+    Return,
 
     #[regex("[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_owned())]
     Identifier(String),
@@ -78,14 +79,31 @@ enum Token {
 
 #[test]
 fn test_lexer() {
-    let filename = ".\\output\\day_zero.mist.txt";
-    let src = fs::read_to_string(&filename).expect("Failed to read file");
+    let input = r#"
+function hello_word(a, b) {
+    return a + b;
+}
+    "#;
 
-    let mut lexer = Token::lexer(src.as_str());
+    let mut lexer = Token::lexer(input);
 
-    while let Some(token) = lexer.next() {
-        println!("{:?}", token);
-    }
+    assert_eq!(lexer.next(), Some(Ok(Token::Function)));
+    assert_eq!(lexer.next(), Some(Ok(Token::Identifier("hello_word".to_owned()))));
+    assert_eq!(lexer.next(), Some(Ok(Token::ParenOpen)));
+    assert_eq!(lexer.next(), Some(Ok(Token::Identifier("a".to_owned()))));
+    assert_eq!(lexer.next(), Some(Ok(Token::Comma)));
+    assert_eq!(lexer.next(), Some(Ok(Token::Identifier("b".to_owned()))));
+    assert_eq!(lexer.next(), Some(Ok(Token::ParenClose)));
+
+    assert_eq!(lexer.next(), Some(Ok(Token::BraceOpen)));
+
+    assert_eq!(lexer.next(), Some(Ok(Token::Return)));
+    assert_eq!(lexer.next(), Some(Ok(Token::Identifier("a".to_owned()))));
+    assert_eq!(lexer.next(), Some(Ok(Token::Plus)));
+    assert_eq!(lexer.next(), Some(Ok(Token::Identifier("b".to_owned()))));
+    assert_eq!(lexer.next(), Some(Ok(Token::Semicolon)));
+
+    assert_eq!(lexer.next(), Some(Ok(Token::BraceClose)));
 }
 
 fn parser<'src>() -> impl Parser<'src, &'src str, ()> {

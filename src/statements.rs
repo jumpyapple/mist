@@ -1,10 +1,9 @@
 use crate::tokens::{
-    FunctionParameterToken, IdentifierWithDefaultValueToken, TypeOnlyToken, ValueToken,
+    FunctionParameterToken, ValueToken,
 };
 
 use crate::expressions::Expression;
 use serde::de::IntoDeserializer;
-use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -46,8 +45,6 @@ impl Statement {
         f: &mut std::fmt::Formatter<'_>,
         indent: usize,
     ) -> std::fmt::Result {
-        let current_indent = " ".repeat(indent * 4);
-
         match self {
             Statement::Block(stmt) => stmt.fmt_indented(f, indent),
             Statement::Expr(stmt) => stmt.fmt_indented(f, indent),
@@ -75,9 +72,9 @@ impl VarStatement {
         indent: usize,
     ) -> std::fmt::Result {
         let current_indent = " ".repeat(indent * 4);
-        write!(f, "{}var ", current_indent);
-        self.name.fmt_indented(f, 0);
-        write!(f, " = ");
+        write!(f, "{}var ", current_indent)?;
+        self.name.fmt_indented(f, 0)?;
+        write!(f, " = ")?;
         self.initializer.fmt_indented(f, 0)
     }
 }
@@ -109,20 +106,20 @@ impl FunctionStatement {
         self.name.fmt_indented(f, indent)?;
         write!(f, "(")?;
         for (index, param) in self.params.iter().enumerate() {
-            param.fmt_indented(f, 0);
+            param.fmt_indented(f, 0)?;
             if index != &self.params.len() - 1 {
                 write!(f, ", ")?;
             }
         }
         // self.params.iter().map(|item| item.fmt_indented(f, indent));
         writeln!(f, ")")?;
-        self.body.fmt_indented(f, indent);
+        self.body.fmt_indented(f, indent)?;
 
         // Not sure what syntax should look like.
         match &self.resolve {
             FunctionResolveType::NullString(_) => write!(f, ""),
             FunctionResolveType::BlockStatement(stmt) => {
-                writeln!(f, "=>");
+                writeln!(f, "=>")?;
                 stmt.fmt_indented(f, indent)
             }
         }
@@ -142,30 +139,29 @@ impl BlockStatement {
         indent: usize,
     ) -> std::fmt::Result {
         let current_indent = " ".repeat(indent * 4);
-        writeln!(f, "{}{{", current_indent);
-        // self.stmts.iter().map(|item| item.fmt_indented(f, indent + 1));
+        writeln!(f, "{}{{", current_indent)?;
         if self.stmts.len() == 0 {
             // E.g. an empty function that is used for its "resolve".
             // write!(f, "stmts has zero length!!!");
         }
         for stmt in &self.stmts {
-            stmt.fmt_indented(f, indent + 1);
+            stmt.fmt_indented(f, indent + 1)?;
             match stmt {
                 Statement::Expr(_) => {
-                    writeln!(f, ";");
+                    writeln!(f, ";")?;
                 }
                 Statement::Var(_) => {
-                    writeln!(f, ";");
+                    writeln!(f, ";")?;
                 }
                 Statement::Free(stmt) => {
                     if stmt.has_block_statement() {
-                        write!(f, "");
+                        write!(f, "")?;
                     } else {
-                        write!(f, ";\n");
+                        write!(f, ";\n")?;
                     }
                 }
                 Statement::Return(_) => {
-                    writeln!(f, ";");
+                    writeln!(f, ";")?;
                 }
                 _ => {}
             }
@@ -189,7 +185,7 @@ impl SimultaneousStatement {
         indent: usize,
     ) -> std::fmt::Result {
         let current_indent = " ".repeat(indent * 4);
-        writeln!(f, "{}simultaneous ", current_indent);
+        writeln!(f, "{}simultaneous ", current_indent)?;
         self.body.fmt_indented(f, indent)
     }
 }
@@ -214,14 +210,14 @@ impl FreeStatement {
         indent: usize,
     ) -> std::fmt::Result {
         let current_indent = " ".repeat(indent * 4);
-        write!(f, "{}free", current_indent);
+        write!(f, "{}free", current_indent)?;
         match self.stmt.as_ref() {
             Statement::Block(_) => {
-                write!(f, "\n");
+                write!(f, "\n")?;
                 self.stmt.as_ref().fmt_indented(f, indent)
             }
             _ => {
-                write!(f, " ");
+                write!(f, " ")?;
                 self.stmt.fmt_indented(f, 0)
             }
         }
@@ -240,12 +236,12 @@ pub struct IfStatement {
 
 fn deserialize_else_branch<'de, D>(
     deserializer: D,
-) -> std::result::Result<Option<Box<Statement>>, D::Error>
+) -> Result<Option<Box<Statement>>, D::Error>
 where
     D: Deserializer<'de>,
 {
     // We cant reuse deserializer multiple time, so we deserialize into generic JSON value first.
-    let result: std::result::Result<serde_json::value::Value, <D as Deserializer>::Error> =
+    let result: Result<serde_json::value::Value, <D as Deserializer>::Error> =
         Deserialize::deserialize(deserializer);
 
     match result {
@@ -279,13 +275,13 @@ where
 impl IfStatement {
     fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, indent: usize) -> std::fmt::Result {
         let current_indent = " ".repeat(indent * 4);
-        write!(f, "{}if (", current_indent);
-        self.condition.fmt_indented(f, 0);
-        writeln!(f, ")");
-        self.then_branch.fmt_indented(f, indent);
+        write!(f, "{}if (", current_indent)?;
+        self.condition.fmt_indented(f, 0)?;
+        writeln!(f, ")")?;
+        self.then_branch.fmt_indented(f, indent)?;
         if self.else_branch.is_some() {
-            writeln!(f, "{}else", current_indent);
-            self.else_branch.as_ref().unwrap().fmt_indented(f, indent);
+            writeln!(f, "{}else", current_indent)?;
+            self.else_branch.as_ref().unwrap().fmt_indented(f, indent)?;
         }
         Ok(())
     }
@@ -301,12 +297,12 @@ pub struct ReturnStatement {
 
 fn deserialize_return_value<'de, D>(
     deserializer: D,
-) -> std::result::Result<Option<Expression>, D::Error>
+) -> Result<Option<Expression>, D::Error>
 where
     D: Deserializer<'de>,
 {
     // We cant reuse deserializer multiple time, so we deserialize into generic JSON value first.
-    let result: std::result::Result<serde_json::value::Value, <D as Deserializer>::Error> =
+    let result: Result<serde_json::value::Value, <D as Deserializer>::Error> =
         Deserialize::deserialize(deserializer);
 
     match result {
@@ -344,7 +340,7 @@ impl ReturnStatement {
         indent: usize,
     ) -> std::fmt::Result {
         let current_indent = " ".repeat(indent * 4);
-        write!(f, "{}return ", current_indent);
+        write!(f, "{}return ", current_indent)?;
         if self.value.is_some() {
             self.value.as_ref().unwrap().fmt_indented(f, 0)
         } else {

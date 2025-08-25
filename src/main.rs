@@ -2,17 +2,15 @@ mod expressions;
 mod parser;
 mod statements;
 mod tokens;
+mod cli;
 
 use core::fmt;
 use std::collections::HashMap;
 use std::env;
 use std::fs;
-use std::io;
 
 use crate::statements::Statement;
-use serde::de::IntoDeserializer;
-use serde::de::Visitor;
-use serde::{Deserialize, Deserializer, Serialize, de};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
@@ -205,15 +203,15 @@ struct Mist {
 }
 
 impl fmt::Display for Mist {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for stmt in &self.statements {
-            stmt.fmt_indented(f, 0);
+            stmt.fmt_indented(f, 0)?;
             match stmt {
-                Statement::Block(s) => write!(f, "")?,
-                Statement::Expr(s) => write!(f, ";\n")?,
-                Statement::Function(s) => write!(f, "\n")?,
-                Statement::Var(s) => write!(f, ";\n")?,
-                Statement::Simultaneous(s) => write!(f, "\n")?,
+                Statement::Block(_) => write!(f, "")?,
+                Statement::Expr(_) => write!(f, ";\n")?,
+                Statement::Function(_) => write!(f, "\n")?,
+                Statement::Var(_) => write!(f, ";\n")?,
+                Statement::Simultaneous(_) => write!(f, "\n")?,
                 Statement::Free(s) => {
                     if s.has_block_statement() {
                         write!(f, "\n")?
@@ -221,8 +219,8 @@ impl fmt::Display for Mist {
                         write!(f, ";\n")?
                     }
                 }
-                Statement::If(s) => write!(f, "\n")?,
-                Statement::Return(s) => write!(f, "")?,
+                Statement::If(_) => write!(f, "\n")?,
+                Statement::Return(_) => write!(f, "")?,
             }
         }
         Ok(())
@@ -257,7 +255,7 @@ fn main() {
             // let result: Result<Mist> = serde_json::from_str(data.as_str());
             let json_deserializer = &mut serde_json::Deserializer::from_str(data.as_str());
 
-            let result: std::result::Result<Mist, _> =
+            let result: Result<Mist, _> =
                 serde_path_to_error::deserialize(json_deserializer);
             match result {
                 Ok(mist) => println!("{}", mist),
