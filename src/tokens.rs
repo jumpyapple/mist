@@ -1,4 +1,6 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde::de::{Error, IntoDeserializer};
+use crate::expressions::Expression;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum TokenType {
@@ -17,6 +19,7 @@ pub enum TokenType {
     Minus,
     Star,
     Slash,
+    Bang,
     And,
 }
 
@@ -24,8 +27,9 @@ pub enum TokenType {
 #[derive(Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Token {
-    // Identifier (with default_value), Number (with capital V in value), String (with lowercase V in value).
+    // Identifier (without the default_value), Number (with capital V in value), String (with lowercase V in value).
     ValueToken(ValueToken),
+    IdentifierWithDefaultValueToken(IdentifierWithDefaultValueToken),
     // BooleanTrue, BooleanFalse, Minus, DoubleEqual.
     // NOTE: If this is first, serde seem to take the lazy route and pick it
     TypeOnlyToken(TypeOnlyToken),
@@ -42,11 +46,13 @@ impl Token {
         match self {
             Token::TypeOnlyToken(t) => t.fmt_indented(f, indent),
             Token::ValueToken(t) => t.fmt_indented(f, indent),
+            Token::IdentifierWithDefaultValueToken(t) => t.fmt_indented(f, indent),
         }
     }
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TypeOnlyToken {
     pub(crate) token_type: TokenType, // BooleanTrue, BooleanFalse, DoubleEqual, Minus
 }
@@ -68,6 +74,7 @@ impl TypeOnlyToken {
             TokenType::Minus => write!(f, "-"),
             TokenType::Star => write!(f, "*"),
             TokenType::Slash => write!(f, "/"),
+            TokenType::Bang => write!(f, "!"),
             TokenType::And => write!(f, "&&"),
             _ => write!(
                 f,
@@ -86,12 +93,11 @@ pub enum Value {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ValueToken {
-    token_type: TokenType, // Identifier, Number, String.
+    token_type: TokenType, // Identifier (without default_value), Number, String.
     #[serde(alias = "Value")]
     value: Value,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    default_value: Option<String>,
 }
 
 impl ValueToken {
@@ -109,12 +115,7 @@ impl ValueToken {
                     Value::NumberValue(val) => {
                         write!(f, "([!!] An Identifer has a number as its name: {})", val)
                     }
-                };
-
-                if self.default_value.is_some() {
-                    write!(f, " = {}", self.default_value.as_ref().unwrap());
                 }
-                Ok(())
             }
             TokenType::Number => match &self.value {
                 Value::StringValue(val) => {
@@ -133,6 +134,69 @@ impl ValueToken {
                 "([!!] Unexpect token type in ValueToken: {:?})",
                 self.token_type
             ),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DefaultValue {
+    NullStringDefault(String), // The "null".
+    ExpressionDefault(Box<Expression>),
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct IdentifierWithDefaultValueToken {
+    token_type: TokenType, // Identifier.
+    #[serde(alias = "Value")]
+    value: String, // Identifier can only has String as its name.
+    default_value: DefaultValue, // Only Identifier uses this?
+}
+
+impl IdentifierWithDefaultValueToken {
+    pub(crate) fn fmt_indented(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        indent: usize,
+    ) -> std::fmt::Result {
+        let current_indent = " ".repeat(indent * 4);
+
+        match self.token_type {
+            TokenType::Identifier => {
+                write!(f, "{} = ", self.value);
+                match &self.default_value {
+                    DefaultValue::ExpressionDefault(exp) => exp.fmt_indented(f, 0),
+                    DefaultValue::NullStringDefault(val) => write!(f, "null"),
+                }
+            }
+            _ => write!(
+                f,
+                "([!!] Unexpect token type in IdentifierWithMaybeDefaultValueToken: {:?})",
+                self.token_type
+            ),
+        }
+    }
+}
+
+// There is no concept of this in the raw mist.
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum FunctionParameterToken {
+    IdentifierOnly(ValueToken),
+    IdentifierWithDefault(IdentifierWithDefaultValueToken)
+}
+
+impl FunctionParameterToken {
+    pub(crate) fn fmt_indented(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        indent: usize,
+    ) -> std::fmt::Result {
+        let current_indent = " ".repeat(indent * 4);
+
+        match self {
+            FunctionParameterToken::IdentifierOnly(exp) => exp.fmt_indented(f, 0),
+            FunctionParameterToken::IdentifierWithDefault(exp) => exp.fmt_indented(f, 0),
         }
     }
 }

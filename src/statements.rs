@@ -1,4 +1,4 @@
-use crate::tokens::ValueToken;
+use crate::tokens::{FunctionParameterToken, IdentifierWithDefaultValueToken, TypeOnlyToken, ValueToken};
 
 use crate::expressions::Expression;
 use serde::de::IntoDeserializer;
@@ -81,12 +81,20 @@ impl VarStatement {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+enum FunctionResolveType {
+    NullString(String), // The "null" string.
+    BlockStatement(BlockStatement),
+}
+
+
+#[derive(Serialize, Deserialize)]
 pub struct FunctionStatement {
     stmt_type: StatementType, // Function
     name: ValueToken,
-    params: Vec<ValueToken>,
+    params: Vec<FunctionParameterToken>,
     body: BlockStatement,
-    resolve: String,
+    resolve: FunctionResolveType,
 }
 
 impl FunctionStatement {
@@ -99,9 +107,24 @@ impl FunctionStatement {
         write!(f, "{}function ", current_indent)?;
         self.name.fmt_indented(f, indent)?;
         write!(f, "(")?;
-        self.params.iter().map(|item| item.fmt_indented(f, indent));
+        for (index, param) in self.params.iter().enumerate() {
+            param.fmt_indented(f, 0);
+            if index != &self.params.len() - 1 {
+                write!(f, ", ")?;
+            }
+        }
+        // self.params.iter().map(|item| item.fmt_indented(f, indent));
         writeln!(f, ")")?;
-        self.body.fmt_indented(f, indent)
+        self.body.fmt_indented(f, indent);
+
+        // Not sure what syntax should look like.
+        match &self.resolve {
+            FunctionResolveType::NullString(_) => write!(f, ""),
+            FunctionResolveType::BlockStatement(stmt) => {
+                writeln!(f, "=>");
+                stmt.fmt_indented(f, indent)
+            }
+        }
     }
 }
 
@@ -121,7 +144,8 @@ impl BlockStatement {
         writeln!(f, "{}{{", current_indent);
         // self.stmts.iter().map(|item| item.fmt_indented(f, indent + 1));
         if self.stmts.len() == 0 {
-            write!(f, "stmts has zero length!!!");
+            // E.g. an empty function that is used for its "resolve".
+            // write!(f, "stmts has zero length!!!");
         }
         for stmt in &self.stmts {
             stmt.fmt_indented(f, indent + 1);

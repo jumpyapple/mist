@@ -129,6 +129,10 @@ impl UnaryExpression {
                     t.fmt_indented(f, 0);
                     self.right.fmt_indented(f, 0)
                 }
+                TokenType::Bang => {
+                    t.fmt_indented(f, 0);
+                    self.right.fmt_indented(f, 0)
+                }
                 _ => write!(
                     f,
                     "([!!] Unknown operator for a UnaryExpression. Found {:?}",
@@ -138,6 +142,10 @@ impl UnaryExpression {
             Token::ValueToken(t) => write!(
                 f,
                 "([!!] ValueToken found as operator for the UnaryExpression."
+            ),
+            Token::IdentifierWithDefaultValueToken(t) =>write!(
+                f,
+                "([!!] IdentifierWithDefaultValueToken found as operator for the UnaryExpression."
             ),
         }
     }
@@ -231,6 +239,10 @@ impl BinaryExpression {
             Token::ValueToken(t) => write!(
                 f,
                 "([!!] ValueToken found as operator for the BinaryExpression."
+            ),
+            Token::IdentifierWithDefaultValueToken(t) => write!(
+                f,
+                "([!!] IdentifierWithDefaultValueToken found as operator for the BinaryExpression."
             ),
         }
     }
