@@ -3,20 +3,14 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub enum ExpressionType {
-    #[serde(rename = "Call")]
     Call,
-    #[serde(rename = "Named")]
     Named,
-    #[serde(rename = "Literal")]
     Literal,
-    #[serde(rename = "Unary")]
     Unary,
-    #[serde(rename = "Binary")]
     Binary,
-    #[serde(rename = "Logical")]
     Logical,
-    #[serde(rename = "Assign")]
     Assign,
+    Grouping,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -28,6 +22,7 @@ pub enum Expression {
     Unary(UnaryExpression),
     Binary(BinaryExpression), // We are using this for Logical as well
     Assign(AssignExpression),
+    Grouping(GroupingExpression),
 }
 
 impl Expression {
@@ -45,6 +40,7 @@ impl Expression {
             Expression::Binary(exp) => exp.fmt_indented(f, indent),
             Expression::Unary(exp) => exp.fmt_indented(f, indent),
             Expression::Assign(exp) => exp.fmt_indented(f, indent),
+            Expression::Grouping(exp) => exp.fmt_indented(f, indent),
         }
     }
 }
@@ -170,6 +166,13 @@ impl BinaryExpression {
                     write!(f, " ");
                     self.right.fmt_indented(f, 0)
                 }
+                TokenType::BangEqual => {
+                    self.left.fmt_indented(f, 0);
+                    write!(f, " ");
+                    t.fmt_indented(f, 0);
+                    write!(f, " ");
+                    self.right.fmt_indented(f, 0)
+                }
                 TokenType::LessEqual => {
                     self.left.fmt_indented(f, 0);
                     write!(f, " ");
@@ -192,6 +195,13 @@ impl BinaryExpression {
                     self.right.fmt_indented(f, 0)
                 }
                 TokenType::Plus => {
+                    self.left.fmt_indented(f, 0);
+                    write!(f, " ");
+                    t.fmt_indented(f, 0);
+                    write!(f, " ");
+                    self.right.fmt_indented(f, 0)
+                }
+                TokenType::Minus => {
                     self.left.fmt_indented(f, 0);
                     write!(f, " ");
                     t.fmt_indented(f, 0);
@@ -244,5 +254,24 @@ impl AssignExpression {
         self.name.fmt_indented(f, 0);
         write!(f, " = ");
         self.value.fmt_indented(f, 0)
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GroupingExpression {
+    expr_type: ExpressionType, // Grouping
+    expr: Box<Expression>,
+}
+
+impl GroupingExpression {
+    pub(crate) fn fmt_indented(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        indent: usize,
+    ) -> std::fmt::Result {
+        let current_indent = " ".repeat(indent * 4);
+        write!(f, "{}(", current_indent);
+        self.expr.fmt_indented(f, 0);
+        write!(f, ")")
     }
 }

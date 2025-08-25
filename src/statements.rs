@@ -146,6 +146,8 @@ impl BlockStatement {
 }
 
 #[derive(Serialize, Deserialize)]
+// Without this, serde will pick this instead of FunctionStatement
+#[serde(deny_unknown_fields)]
 pub struct SimultaneousStatement {
     stmt_type: StatementType, // Simultaneous
     body: BlockStatement,

@@ -10,6 +10,7 @@ pub enum TokenType {
     #[serde(rename = "False")]
     BooleanFalse,
     DoubleEqual,
+    BangEqual,
     LessEqual,
     GreaterEqual,
     Plus,
@@ -60,6 +61,7 @@ impl TypeOnlyToken {
             TokenType::BooleanTrue => write!(f, "true"),
             TokenType::BooleanFalse => write!(f, "false"),
             TokenType::DoubleEqual => write!(f, "=="),
+            TokenType::BangEqual => write!(f, "!="),
             TokenType::LessEqual => write!(f, "<="),
             TokenType::GreaterEqual => write!(f, ">="),
             TokenType::Plus => write!(f, "+"),
