@@ -1,6 +1,6 @@
-use serde::{Deserialize, Deserializer, Serialize};
-use serde::de::{Error, IntoDeserializer};
 use crate::expressions::Expression;
+use serde::de::{Error, IntoDeserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum TokenType {
@@ -113,14 +113,12 @@ impl ValueToken {
         let current_indent = " ".repeat(indent * 4);
 
         match self.token_type {
-            TokenType::Identifier => {
-                match &self.value {
-                    Value::StringValue(val) => write!(f, "{}", val),
-                    Value::NumberValue(val) => {
-                        write!(f, "([!!] An Identifier has a number as its name: {})", val)
-                    }
+            TokenType::Identifier => match &self.value {
+                Value::StringValue(val) => write!(f, "{}", val),
+                Value::NumberValue(val) => {
+                    write!(f, "([!!] An Identifier has a number as its name: {})", val)
                 }
-            }
+            },
             TokenType::Number => match &self.value {
                 Value::StringValue(val) => {
                     write!(f, "([!!] A NumberValue has a string as its value: {})", val)
@@ -187,7 +185,7 @@ impl IdentifierWithDefaultValueToken {
 #[serde(untagged)]
 pub enum FunctionParameterToken {
     IdentifierOnly(ValueToken),
-    IdentifierWithDefault(IdentifierWithDefaultValueToken)
+    IdentifierWithDefault(IdentifierWithDefaultValueToken),
 }
 
 impl FunctionParameterToken {

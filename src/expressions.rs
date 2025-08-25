@@ -143,7 +143,7 @@ impl UnaryExpression {
                 f,
                 "([!!] ValueToken found as operator for the UnaryExpression."
             ),
-            Token::IdentifierWithDefaultValueToken(t) =>write!(
+            Token::IdentifierWithDefaultValueToken(t) => write!(
                 f,
                 "([!!] IdentifierWithDefaultValueToken found as operator for the UnaryExpression."
             ),

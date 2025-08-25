@@ -1,7 +1,7 @@
 mod expressions;
+mod parser;
 mod statements;
 mod tokens;
-mod parser;
 
 use core::fmt;
 use std::collections::HashMap;
@@ -220,7 +220,7 @@ impl fmt::Display for Mist {
                     } else {
                         write!(f, ";\n")?
                     }
-                },
+                }
                 Statement::If(s) => write!(f, "\n")?,
                 Statement::Return(s) => write!(f, "")?,
             }

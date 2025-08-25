@@ -1,4 +1,6 @@
-use crate::tokens::{FunctionParameterToken, IdentifierWithDefaultValueToken, TypeOnlyToken, ValueToken};
+use crate::tokens::{
+    FunctionParameterToken, IdentifierWithDefaultValueToken, TypeOnlyToken, ValueToken,
+};
 
 use crate::expressions::Expression;
 use serde::de::IntoDeserializer;
@@ -86,7 +88,6 @@ enum FunctionResolveType {
     NullString(String), // The "null" string.
     BlockStatement(BlockStatement),
 }
-
 
 #[derive(Serialize, Deserialize)]
 pub struct FunctionStatement {
