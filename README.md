@@ -12,7 +12,7 @@ To list all unique `stmt_type`, `expr_type` and `token_type`,
 
 ```powershell
 $filename = '__mist__.json'
-jq -C '.. | select(objects | has(""stmt_type"")) | .stmt_type' $filename | Sort-Object | Get-Unique
+jq -C '.. | select(objects | has(""stmt_type"")) | .stmt_type' $filename | Sort-Object | Get-Unique;
 jq -C '.. | select(objects | has(""expr_type"")) | .expr_type' $filename | Sort-Object | Get-Unique
 jq -C '.. | select(objects | has(""token_type"")) | .token_type' $filename | Sort-Object | Get-Unique
 ```
@@ -32,11 +32,11 @@ To list all unique `token_type`,
 Fish shell only
 
 ```shell
-set mist_names $(jq -r 'keys | .[]' __mist__.json)
+set mist_names $(jq -r 'keys | .[]' ./mists/__mist__.json)
 
 for mist_name in $mist_names 
   echo "Extracting $mist_name";
-  jq '. | with_entries(select(.key | startswith("'"$mist_name"'")))' __mist__.json | uvx compact-json --output "$mist_name.json" -
+  jq '. | with_entries(select(.key | startswith("'"$mist_name"'")))' ./mists/__mist__.json | uvx compact-json --output "./mists/$mist_name.json" -
 end
 ```
 

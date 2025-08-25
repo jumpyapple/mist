@@ -5,7 +5,8 @@ use std::fs;
 use std::env;
 
 use serde::de::Visitor;
-use serde::{Deserialize, Serialize};
+use serde::de::IntoDeserializer;
+use serde::{Deserialize, Serialize, Deserializer, de};
 use serde_json::Result;
 
 #[derive(Serialize, Deserialize)]
@@ -153,6 +154,8 @@ enum ExpressionType {
     Binary,
     #[serde(rename = "Logical")]
     Logical,
+    #[serde(rename = "Assign")]
+    Assign,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -163,6 +166,7 @@ enum Expression {
     Literal(LiteralExpression),
     Unary(UnaryExpression),
     Binary(BinaryExpression), // We are using this for Logical as well
+    Assign(AssignExpression),
 }
 
 impl Expression {
@@ -175,6 +179,7 @@ impl Expression {
             Expression::Literal(exp) => exp.fmt_indented(f, indent),
             Expression::Binary(exp) => exp.fmt_indented(f, indent),
             Expression::Unary(exp) => exp.fmt_indented(f, indent),
+            Expression::Assign(exp) => exp.fmt_indented(f, indent),
         }
     }
 }
@@ -356,8 +361,38 @@ struct IfStatement {
     stmt_type: StatementType, // If
     condition: Expression,
     then_branch: BlockStatement,
-    // TODO: Double check if not having else_branch is possible.
+    // An empty else branch is possible, but it is marked as "null" instead of just JSON's null. 
+    #[serde(deserialize_with="deserialize_else_branch")]
     else_branch: Option<BlockStatement>
+}
+
+fn deserialize_else_branch<'de, D>(deserializer: D) -> std::result::Result<Option<BlockStatement>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    // We cant reuse deserializer multiple time, so we deserialize into generic JSON value first.
+    let result: std::result::Result<serde_json::value::Value, <D as Deserializer>::Error> = Deserialize::deserialize(deserializer);
+
+    match result {
+        Ok(generic_json) => match generic_json {
+                serde_json::Value::String(value) => if value == "null" {
+                    Ok(None)
+                } else {
+                    Err(serde::de::Error::custom("else_branch is a String, expect a Map or \"null\""))
+                },
+                serde_json::Value::Object(value) => match Deserialize::deserialize(value.into_deserializer()) {
+                    Ok(value) => Ok(Some(value)),
+                    Err(error) => Err(serde::de::Error::custom(error.to_string())),
+                },
+                _ => Err(serde::de::Error::custom("else_branch is not a String \"null\" or a Map"))
+            },
+        Err(error) => {
+            println!("Error in the first attempt: {}", error.to_string());
+            Err(serde::de::Error::custom(format!("else_branch is error: {}", error.to_string())))
+        }
+    }
+
+
 }
 
 impl IfStatement {
@@ -409,6 +444,7 @@ impl CallExpression {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct NamedExpression {
     expr_type: ExpressionType, // Named
     name: ValueToken
@@ -423,6 +459,7 @@ impl NamedExpression {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct LiteralExpression {
     expr_type: ExpressionType, // Literal
     value: Token
@@ -500,31 +537,62 @@ impl BinaryExpression {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+struct AssignExpression {
+    expr_type: ExpressionType, // Assign
+    name: NamedExpression,
+    value: Box<Expression>
+}
+
+impl AssignExpression {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, indent: usize) -> std::fmt::Result {
+        let current_indent = " ".repeat(indent * 4);
+        write!(f, "{}", current_indent);
+        self.name.fmt_indented(f, 0);
+        write!(f, " = ");
+        self.value.fmt_indented(f, 0)
+    }
+}
+
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() != 2{
         println!("usage: {} <mist-file-path>", args[0]);
-        // return;
+        return;
     }
 
-    // let file_path = args[1].to_string();
-    let file_path = ".\\mists\\balor_six_hearts.mist.json";
+    let file_path = args[1].to_string();
+    // let file_path = ".\\mists\\day_zero.mist.json";
+    // let file_path = ".\\mists\\adeline_eight_hearts.mist.json";
+    // let file_path = ".\\mists\\adeline_four_hearts.mist.json";
+    // let file_path = ".\\mists\\adeline_quest_board.mist.json";
+    // let file_path = ".\\mists\\adeline_six_hearts.mist.json";
+    // let file_path = ".\\mists\\animal_festival_upcoming_eligible_year_one.mist.json";
+    // let file_path = ".\\mists\\animal_festival_upcoming_eligible_year_two.mist.json";
+    // let file_path = ".\\mists\\animal_festival_upcoming_ineligible_year_one.mist.json";
+    // let file_path = ".\\mists\\animal_festival_upcoming_ineligible_year_two.mist.json";
+    // let file_path = ".\\mists\\balor_eight_hearts.mist.json";
+    // let file_path = ".\\mists\\balor_four_hearts.mist.json";
+    // let file_path = ".\\mists\\balor_six_hearts.mist.json";
+    // let file_path = ".\\mists\\_test.json";
+
     
     let result = fs::read_to_string(file_path.clone());
     match result {
         Ok(data) => {
-            let result: Result<Mist> = serde_json::from_str(data.as_str());
-            if result.is_ok() {
-                println!("{}", result.unwrap());
-                /* match result.unwrap().render_mist_as_human_readable("day_zero.mist") {
-                    Some(text ) => println!("{}", text),
-                    None => println!("Error: no such mist found"),
-                };*/
-            } else {
-                println!("Error: Failed to parse file '{}': {:?}", file_path, result.err());
+            // let result: Result<Mist> = serde_json::from_str(data.as_str());
+            let json_deserializer = &mut serde_json::Deserializer::from_str(data.as_str());
+
+            let result: std::result::Result<Mist, _> = serde_path_to_error::deserialize(json_deserializer);
+            match result {
+                Ok(mist) => println!("{}", mist),
+                Err(err) => {
+                    let path = err.path().to_string();
+                    println!("Error: Failed to parse file '{}' with path: {}", file_path, path);
+                }
+
             }
-            
         },
         Err(error) => println!("Error: Failed to read file '{}': {}", file_path, error),
     };
