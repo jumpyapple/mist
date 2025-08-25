@@ -44,6 +44,7 @@ impl fmt::Display for Mist {
                 Statement::Simultaneous(s) => write!(f, "\n")?,
                 Statement::Free(s) => write!(f, ";\n")?,
                 Statement::If(s) => write!(f, "\n")?,
+                Statement::Return(s) => write!(f, "")?,
             }
         }
         Ok(())
@@ -109,7 +110,9 @@ enum StatementType {
     #[serde(rename = "Free")]
     Free,
     #[serde(rename = "If")]
-    If
+    If,
+    #[serde(rename = "Return")]
+    Return
 }
 
 #[derive(Serialize, Deserialize)]
@@ -122,6 +125,7 @@ enum Statement {
     Simultaneous(SimultaneousStatement),
     Free(FreeStatement),
     If(IfStatement),
+    Return(ReturnStatement),
 }
 
 impl Statement {
@@ -136,6 +140,7 @@ impl Statement {
             Statement::Simultaneous(stmt) => stmt.fmt_indented(f, indent),
             Statement::Free(stmt) => stmt.fmt_indented(f, indent),
             Statement::If(stmt) => stmt.fmt_indented(f, indent),
+            Statement::Return(stmt) => stmt.fmt_indented(f, indent),
         }
     }
 }
@@ -312,6 +317,7 @@ impl BlockStatement {
                 Statement::Expr(_) => { writeln!(f, ";"); }
                 Statement::Var(_) => { writeln!(f, ";"); }
                 Statement::Free(_) => { writeln!(f, ";"); }
+                Statement::Return(_) => { writeln!(f, ";"); }
                 _ => {}
             }
         }
@@ -387,12 +393,9 @@ where
                 _ => Err(serde::de::Error::custom("else_branch is not a String \"null\" or a Map"))
             },
         Err(error) => {
-            println!("Error in the first attempt: {}", error.to_string());
-            Err(serde::de::Error::custom(format!("else_branch is error: {}", error.to_string())))
+            Err(serde::de::Error::custom(format!("Error parsing else_branch: {}", error.to_string())))
         }
     }
-
-
 }
 
 impl IfStatement {
@@ -409,6 +412,56 @@ impl IfStatement {
         Ok(())
     }
 }
+
+#[derive(Serialize, Deserialize)]
+struct ReturnStatement {
+    stmt_type: StatementType, // Return
+    // Similar to the else_branch of the IfStatement, this can be "null".
+    #[serde(deserialize_with="deserialize_return_value")]
+    value: Option<Expression>
+}
+
+fn deserialize_return_value<'de, D>(deserializer: D) -> std::result::Result<Option<Expression>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    // We cant reuse deserializer multiple time, so we deserialize into generic JSON value first.
+    let result: std::result::Result<serde_json::value::Value, <D as Deserializer>::Error> = Deserialize::deserialize(deserializer);
+
+    match result {
+        Ok(generic_json) => match generic_json {
+            serde_json::Value::String(value) => if value == "null" {
+                Ok(None)
+            } else {
+                Err(serde::de::Error::custom("return's value is a String, expect a Map or \"null\""))
+            },
+            serde_json::Value::Object(value) => match Deserialize::deserialize(value.into_deserializer()) {
+                Ok(value) => Ok(Some(value)),
+                Err(error) => Err(serde::de::Error::custom(error.to_string())),
+            },
+            _ => Err(serde::de::Error::custom("return's value is not a String \"null\" or a Map"))
+        },
+        Err(error) => {
+            Err(serde::de::Error::custom(format!("Error parsing return statement: {}", error.to_string())))
+        }
+    }
+}
+
+impl ReturnStatement {
+    fn fmt_indented(&self, f: &mut std::fmt::Formatter<'_>, indent: usize) -> std::fmt::Result {
+        let current_indent = " ".repeat(indent * 4);
+        write!(f, "{}return ", current_indent);
+        if self.value.is_some() {
+            self.value.as_ref().unwrap().fmt_indented(f, 0)
+        } else {
+            write!(f, "null")
+        }
+    }
+}
+
+
+
+
 
 #[derive(Serialize, Deserialize)]
 struct ExpressionStatement {
