@@ -5,7 +5,6 @@ A command line oriented tool to work with [Fields of Mistria](https://www.fields
 ## Feature
 
 - Convert Mist in JSON to a more human-readable format.
-- Generate JSON Mist from said human-readable format.
 - List the names of all the mists in the file.
 
 ## Note
@@ -36,16 +35,6 @@ jq -C '.. | select(objects | has("expr_type")) | .expr_type' $filename | sort | 
 jq -C '.. | select(objects | has("token_type")) | .token_type' $filename | sort | uniq
 ```
 
-To list all unique `expr_type`,
-
-```powershell
-```
-
-To list all unique `token_type`,
-
-```powershell
-
-```
 ### Extracting all mists
 
 Fish shell only
