@@ -1,9 +1,12 @@
+use crate::expressions::{Expression, ExpressionType, LiteralExpression};
+use crate::tokens::{TokenType, ValueToken};
 use chumsky::prelude::*;
 use logos::Logos;
+use std::fs;
 
 #[derive(Logos, Clone, PartialEq, Debug)]
 #[logos(skip r"[ \t\r\n\f]+")]
-enum Token {
+enum LogosToken {
     Error,
 
     #[token("false", |_| false)]
@@ -85,28 +88,56 @@ function hello_word(a, b) {
 }
     "#;
 
-    let mut lexer = Token::lexer(input);
+    let mut lexer = LogosToken::lexer(input);
 
-    assert_eq!(lexer.next(), Some(Ok(Token::Function)));
-    assert_eq!(lexer.next(), Some(Ok(Token::Identifier("hello_word".to_owned()))));
-    assert_eq!(lexer.next(), Some(Ok(Token::ParenOpen)));
-    assert_eq!(lexer.next(), Some(Ok(Token::Identifier("a".to_owned()))));
-    assert_eq!(lexer.next(), Some(Ok(Token::Comma)));
-    assert_eq!(lexer.next(), Some(Ok(Token::Identifier("b".to_owned()))));
-    assert_eq!(lexer.next(), Some(Ok(Token::ParenClose)));
+    assert_eq!(lexer.next(), Some(Ok(LogosToken::Function)));
+    assert_eq!(
+        lexer.next(),
+        Some(Ok(LogosToken::Identifier("hello_word".to_owned())))
+    );
+    assert_eq!(lexer.next(), Some(Ok(LogosToken::ParenOpen)));
+    assert_eq!(lexer.next(), Some(Ok(LogosToken::Identifier("a".to_owned()))));
+    assert_eq!(lexer.next(), Some(Ok(LogosToken::ParenOpen)));
+    assert_eq!(lexer.next(), Some(Ok(LogosToken::Identifier("b".to_owned()))));
+    assert_eq!(lexer.next(), Some(Ok(LogosToken::ParenClose)));
 
-    assert_eq!(lexer.next(), Some(Ok(Token::BraceOpen)));
+    assert_eq!(lexer.next(), Some(Ok(LogosToken::BraceOpen)));
 
-    assert_eq!(lexer.next(), Some(Ok(Token::Return)));
-    assert_eq!(lexer.next(), Some(Ok(Token::Identifier("a".to_owned()))));
-    assert_eq!(lexer.next(), Some(Ok(Token::Plus)));
-    assert_eq!(lexer.next(), Some(Ok(Token::Identifier("b".to_owned()))));
-    assert_eq!(lexer.next(), Some(Ok(Token::Semicolon)));
+    assert_eq!(lexer.next(), Some(Ok(LogosToken::Return)));
+    assert_eq!(lexer.next(), Some(Ok(LogosToken::Identifier("a".to_owned()))));
+    assert_eq!(lexer.next(), Some(Ok(LogosToken::Plus)));
+    assert_eq!(lexer.next(), Some(Ok(LogosToken::Identifier("b".to_owned()))));
+    assert_eq!(lexer.next(), Some(Ok(LogosToken::Semicolon)));
 
-    assert_eq!(lexer.next(), Some(Ok(Token::BraceClose)));
+    assert_eq!(lexer.next(), Some(Ok(LogosToken::BraceClose)));
+}
+
+#[test]
+fn test_lexer_with_file() {
+    let filename = ".\\output\\day_zero.mist.txt";
+    let input   = std::fs::read_to_string(filename).unwrap();
+    let mut lexer = LogosToken::lexer(input.as_str());
+    while let Some(Ok(token)) = lexer.next() {
+        println!("{:?}", token);
+    }
 }
 
 fn parser<'src>() -> impl Parser<'src, &'src str, ()> {
+    // let ast = recursive::<_, _, extra::Err<Simple<LogosToken>>, _, _>(|ast| {
+    //     let literal = select! {
+    //         LogosToken::Number(x) => Expression::new_number_literal(x),
+    //         LogosToken::Boolean(x) => Expression::new_boolean_literal(x)
+    //     };
+    // });
+
+    // recursive(|expr| {
+    //     let ident = select_ref! { LogosToken::Identifier(x) => x.clone() };
+    //     let atom = choice((
+    //         select_ref! {
+    //             LogosToken::Number(x) => Expression::new_number_literal(*x) },
+    //         select_ref! { LogosToken::Boolean(x) => Expression::new_boolean_literal(*x) },
+    //     ));
+    // })
     end()
 }
 
