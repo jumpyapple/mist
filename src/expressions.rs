@@ -177,7 +177,35 @@ impl BinaryExpression {
                     write!(f, " ");
                     self.right.fmt_indented(f, 0)
                 }
+                TokenType::GreaterEqual => {
+                    self.left.fmt_indented(f, 0);
+                    write!(f, " ");
+                    t.fmt_indented(f, 0);
+                    write!(f, " ");
+                    self.right.fmt_indented(f, 0)
+                }
                 TokenType::And => {
+                    self.left.fmt_indented(f, 0);
+                    write!(f, " ");
+                    t.fmt_indented(f, 0);
+                    write!(f, " ");
+                    self.right.fmt_indented(f, 0)
+                }
+                TokenType::Plus => {
+                    self.left.fmt_indented(f, 0);
+                    write!(f, " ");
+                    t.fmt_indented(f, 0);
+                    write!(f, " ");
+                    self.right.fmt_indented(f, 0)
+                }
+                TokenType::Star => {
+                    self.left.fmt_indented(f, 0);
+                    write!(f, " ");
+                    t.fmt_indented(f, 0);
+                    write!(f, " ");
+                    self.right.fmt_indented(f, 0)
+                }
+                TokenType::Slash => {
                     self.left.fmt_indented(f, 0);
                     write!(f, " ");
                     t.fmt_indented(f, 0);

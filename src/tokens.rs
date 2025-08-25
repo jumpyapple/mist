@@ -2,23 +2,20 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum TokenType {
-    #[serde(rename = "Identifier")]
     Identifier,
-    #[serde(rename = "Number")]
     Number,
-    #[serde(rename = "String")]
     String,
     #[serde(rename = "True")]
     BooleanTrue,
     #[serde(rename = "False")]
     BooleanFalse,
-    #[serde(rename = "DoubleEqual")]
     DoubleEqual,
-    #[serde(rename = "LessEqual")]
     LessEqual,
-    #[serde(rename = "Minus")]
+    GreaterEqual,
+    Plus,
     Minus,
-    #[serde(rename = "And")]
+    Star,
+    Slash,
     And,
 }
 
@@ -64,11 +61,15 @@ impl TypeOnlyToken {
             TokenType::BooleanFalse => write!(f, "false"),
             TokenType::DoubleEqual => write!(f, "=="),
             TokenType::LessEqual => write!(f, "<="),
+            TokenType::GreaterEqual => write!(f, ">="),
+            TokenType::Plus => write!(f, "+"),
             TokenType::Minus => write!(f, "-"),
+            TokenType::Star => write!(f, "*"),
+            TokenType::Slash => write!(f, "/"),
             TokenType::And => write!(f, "&&"),
             _ => write!(
                 f,
-                "([!!] Unkown type for TypeOnlyToken. found {:?})",
+                "([!!] Unknown type for TypeOnlyToken. found {:?})",
                 self.token_type
             ),
         }
