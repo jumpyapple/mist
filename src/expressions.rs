@@ -35,7 +35,9 @@ impl NewExpression {
             }
             NewExpression::Binary { operator, left, right } => {
                 left.fmt_indented(f, 0)?;
+                write!(f, " ")?;
                 operator.fmt_indented(f, 0)?;
+                write!(f, " ")?;
                 right.fmt_indented(f, 0)
             }
             NewExpression::Logical { operator, left, right } => {
@@ -48,8 +50,22 @@ impl NewExpression {
                 write!(f, " = ")?;
                 value.fmt_indented(f, 0)
             }
-            NewExpression::Call { .. } => todo!(),
-            NewExpression::Grouping { .. } => todo!(),
+            NewExpression::Call { call, args } => {
+                call.fmt_indented(f, indent)?;
+                write!(f, "(")?;
+                for (index, arg) in args.iter().enumerate() {
+                    arg.fmt_indented(f, 0)?;
+                    if index != args.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, ")")
+            }
+            NewExpression::Grouping { expr } => {
+                write!(f, "(")?;
+                expr.fmt_indented(f, 0)?;
+                write!(f, ")")
+            }
         }
     }
 }
@@ -249,6 +265,35 @@ fn test_expression_format_human() {
     };
     assert_eq!(format!("{}", input), "lemonade = true");
 
+    // Call.
+    let input = NewExpression::Call {
+        call: Box::from(NewExpression::Named { name: NewToken::Identifier { value: "get_response".to_string(), default_value: None } }),
+        args: vec!(),
+    };
+    assert_eq!(format!("{}", input), "get_response()");
+
+    let input = NewExpression::Call {
+        call: Box::from(NewExpression::Named { name: NewToken::Identifier { value: "scene".to_string(), default_value: None } }),
+        args: vec!(NewExpression::Named { name: NewToken::Identifier { value: "farm".to_string(), default_value: None } }),
+    };
+    assert_eq!(format!("{}", input), "scene(farm)");
+
+    let input = NewExpression::Call {
+        call: Box::from(NewExpression::Named { name: NewToken::Identifier { value: "walk_slow".to_string(), default_value: None } }),
+        args: vec!(
+            NewExpression::Named { name: NewToken::Identifier { value: "eiland".to_string(), default_value: None } },
+            NewExpression::Named { name: NewToken::Identifier { value: "dz_eiland_journal".to_string(), default_value: None } }
+        ),
+    };
+    assert_eq!(format!("{}", input), "walk_slow(eiland, dz_eiland_journal)");
+
+    // Grouping.
+    let input = NewExpression::Grouping { expr: Box::from(NewExpression::Binary {
+        operator: NewToken::Minus,
+        left: Box::from(NewExpression::Named { name: NewToken::Identifier { value: "target_time".to_string(), default_value: None } }),
+        right: Box::from(NewExpression::Named { name: NewToken::Identifier { value: "start".to_string(), default_value: None } }),
+    })};
+    assert_eq!(format!("{}", input), "(target_time - start)");
 }
 
 #[derive(Serialize, Deserialize)]
