@@ -360,13 +360,13 @@ impl FreeStatement {
 struct IfStatement {
     stmt_type: StatementType, // If
     condition: Expression,
-    then_branch: BlockStatement,
+    then_branch: Box<Statement>,
     // An empty else branch is possible, but it is marked as "null" instead of just JSON's null. 
     #[serde(deserialize_with="deserialize_else_branch")]
-    else_branch: Option<BlockStatement>
+    else_branch: Option<Box<Statement>>
 }
 
-fn deserialize_else_branch<'de, D>(deserializer: D) -> std::result::Result<Option<BlockStatement>, D::Error>
+fn deserialize_else_branch<'de, D>(deserializer: D) -> std::result::Result<Option<Box<Statement>>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -561,8 +561,6 @@ fn main() {
         println!("usage: {} <mist-file-path>", args[0]);
         return;
     }
-
-    let file_path = args[1].to_string();
     // let file_path = ".\\mists\\day_zero.mist.json";
     // let file_path = ".\\mists\\adeline_eight_hearts.mist.json";
     // let file_path = ".\\mists\\adeline_four_hearts.mist.json";
@@ -577,6 +575,7 @@ fn main() {
     // let file_path = ".\\mists\\balor_six_hearts.mist.json";
     // let file_path = ".\\mists\\_test.json";
 
+    let file_path = args[1].to_string();
     
     let result = fs::read_to_string(file_path.clone());
     match result {

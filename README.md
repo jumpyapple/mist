@@ -17,6 +17,15 @@ jq -C '.. | select(objects | has(""expr_type"")) | .expr_type' $filename | Sort-
 jq -C '.. | select(objects | has(""token_type"")) | .token_type' $filename | Sort-Object | Get-Unique
 ```
 
+For fish shell,
+
+```shell
+set filename = '__mist__.json'
+jq -C '.. | select(objects | has("stmt_type")) | .stmt_type' $filename | sort | uniq
+jq -C '.. | select(objects | has("expr_type")) | .expr_type' $filename | sort | uniq
+jq -C '.. | select(objects | has("token_type")) | .token_type' $filename | sort | uniq
+```
+
 To list all unique `expr_type`,
 
 ```powershell
