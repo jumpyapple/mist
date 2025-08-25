@@ -156,8 +156,12 @@ impl BlockStatement {
                 Statement::Var(_) => {
                     writeln!(f, ";");
                 }
-                Statement::Free(_) => {
-                    writeln!(f, ";");
+                Statement::Free(stmt) => {
+                    if stmt.has_block_statement() {
+                        write!(f, "");
+                    } else {
+                        write!(f, ";\n");
+                    }
                 }
                 Statement::Return(_) => {
                     writeln!(f, ";");
@@ -196,6 +200,13 @@ pub struct FreeStatement {
 }
 
 impl FreeStatement {
+    pub(crate) fn has_block_statement(&self) -> bool {
+        match self.stmt.as_ref() {
+            Statement::Block(_) => true,
+            _ => false,
+        }
+    }
+
     pub(crate) fn fmt_indented(
         &self,
         f: &mut std::fmt::Formatter<'_>,

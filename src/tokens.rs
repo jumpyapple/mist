@@ -14,7 +14,9 @@ pub enum TokenType {
     DoubleEqual,
     BangEqual,
     LessEqual,
+    Less,
     GreaterEqual,
+    Greater,
     Plus,
     Minus,
     Star,
@@ -69,7 +71,9 @@ impl TypeOnlyToken {
             TokenType::DoubleEqual => write!(f, "=="),
             TokenType::BangEqual => write!(f, "!="),
             TokenType::LessEqual => write!(f, "<="),
+            TokenType::Less => write!(f, "<"),
             TokenType::GreaterEqual => write!(f, ">="),
+            TokenType::Greater => write!(f, ">"),
             TokenType::Plus => write!(f, "+"),
             TokenType::Minus => write!(f, "-"),
             TokenType::Star => write!(f, "*"),
@@ -113,7 +117,7 @@ impl ValueToken {
                 match &self.value {
                     Value::StringValue(val) => write!(f, "{}", val),
                     Value::NumberValue(val) => {
-                        write!(f, "([!!] An Identifer has a number as its name: {})", val)
+                        write!(f, "([!!] An Identifier has a number as its name: {})", val)
                     }
                 }
             }

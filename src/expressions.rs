@@ -165,71 +165,22 @@ impl BinaryExpression {
         f: &mut std::fmt::Formatter<'_>,
         indent: usize,
     ) -> std::fmt::Result {
+        self.left.fmt_indented(f, 0);
+        write!(f, " ");
+
         match &self.operator {
             Token::TypeOnlyToken(t) => match t.token_type {
-                TokenType::DoubleEqual => {
-                    self.left.fmt_indented(f, 0);
-                    write!(f, " ");
-                    t.fmt_indented(f, 0);
-                    write!(f, " ");
-                    self.right.fmt_indented(f, 0)
-                }
-                TokenType::BangEqual => {
-                    self.left.fmt_indented(f, 0);
-                    write!(f, " ");
-                    t.fmt_indented(f, 0);
-                    write!(f, " ");
-                    self.right.fmt_indented(f, 0)
-                }
-                TokenType::LessEqual => {
-                    self.left.fmt_indented(f, 0);
-                    write!(f, " ");
-                    t.fmt_indented(f, 0);
-                    write!(f, " ");
-                    self.right.fmt_indented(f, 0)
-                }
-                TokenType::GreaterEqual => {
-                    self.left.fmt_indented(f, 0);
-                    write!(f, " ");
-                    t.fmt_indented(f, 0);
-                    write!(f, " ");
-                    self.right.fmt_indented(f, 0)
-                }
-                TokenType::And => {
-                    self.left.fmt_indented(f, 0);
-                    write!(f, " ");
-                    t.fmt_indented(f, 0);
-                    write!(f, " ");
-                    self.right.fmt_indented(f, 0)
-                }
-                TokenType::Plus => {
-                    self.left.fmt_indented(f, 0);
-                    write!(f, " ");
-                    t.fmt_indented(f, 0);
-                    write!(f, " ");
-                    self.right.fmt_indented(f, 0)
-                }
-                TokenType::Minus => {
-                    self.left.fmt_indented(f, 0);
-                    write!(f, " ");
-                    t.fmt_indented(f, 0);
-                    write!(f, " ");
-                    self.right.fmt_indented(f, 0)
-                }
-                TokenType::Star => {
-                    self.left.fmt_indented(f, 0);
-                    write!(f, " ");
-                    t.fmt_indented(f, 0);
-                    write!(f, " ");
-                    self.right.fmt_indented(f, 0)
-                }
-                TokenType::Slash => {
-                    self.left.fmt_indented(f, 0);
-                    write!(f, " ");
-                    t.fmt_indented(f, 0);
-                    write!(f, " ");
-                    self.right.fmt_indented(f, 0)
-                }
+                TokenType::DoubleEqual => t.fmt_indented(f, 0),
+                TokenType::BangEqual => t.fmt_indented(f, 0),
+                TokenType::LessEqual => t.fmt_indented(f, 0),
+                TokenType::Less => t.fmt_indented(f, 0),
+                TokenType::GreaterEqual => t.fmt_indented(f, 0),
+                TokenType::Greater => t.fmt_indented(f, 0),
+                TokenType::And => t.fmt_indented(f, 0),
+                TokenType::Plus => t.fmt_indented(f, 0),
+                TokenType::Minus => t.fmt_indented(f, 0),
+                TokenType::Star => t.fmt_indented(f, 0),
+                TokenType::Slash => t.fmt_indented(f, 0),
                 _ => write!(
                     f,
                     "([!!] Unknown operator for a BinaryExpression. Found {:?}",
@@ -244,7 +195,9 @@ impl BinaryExpression {
                 f,
                 "([!!] IdentifierWithDefaultValueToken found as operator for the BinaryExpression."
             ),
-        }
+        };
+        write!(f, " ");
+        self.right.fmt_indented(f, 0)
     }
 }
 

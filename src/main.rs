@@ -213,7 +213,13 @@ impl fmt::Display for Mist {
                 Statement::Function(s) => write!(f, "\n")?,
                 Statement::Var(s) => write!(f, "\n")?,
                 Statement::Simultaneous(s) => write!(f, "\n")?,
-                Statement::Free(s) => write!(f, ";\n")?,
+                Statement::Free(s) => {
+                    if s.has_block_statement() {
+                        write!(f, "\nwe?")?
+                    } else {
+                        write!(f, ";\n")?
+                    }
+                },
                 Statement::If(s) => write!(f, "\n")?,
                 Statement::Return(s) => write!(f, "")?,
             }
