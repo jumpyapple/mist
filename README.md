@@ -1,6 +1,16 @@
-#
+# Mist
 
-## Exploring the `__mist__.json` with jq
+A command line oriented tool to work with [Fields of Mistria](https://www.fieldsofmistria.com/)'s `__mist__.json` file.
+
+## Feature
+
+- Convert Mist in JSON to a more human-readable format.
+- Generate JSON Mist from said human-readable format.
+- List the names of all the mists in the file.
+
+## Note
+
+### Exploring the `__mist__.json` with jq
 
 To list all top-level keys,
 
@@ -36,7 +46,7 @@ To list all unique `token_type`,
 ```powershell
 
 ```
-## Extracting all mists
+### Extracting all mists
 
 Fish shell only
 
@@ -56,7 +66,7 @@ set mist_name "adeline_eight_hearts.mist"
 
 for mist_name in $mist_names 
   echo "Processing $mist_name";
-  ./target/debug/mist-transpiler.exe "./mists/$mist_name.json" > "./output/$mist_name.txt";
+  ./target/debug/mist.exe "./mists/$mist_name.json" > "./output/$mist_name.txt";
 end
 
 for mist_name in $mist_names

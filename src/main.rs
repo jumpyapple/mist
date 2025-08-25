@@ -1,6 +1,7 @@
 mod expressions;
 mod statements;
 mod tokens;
+mod parser;
 
 use core::fmt;
 use std::collections::HashMap;
@@ -211,11 +212,11 @@ impl fmt::Display for Mist {
                 Statement::Block(s) => write!(f, "")?,
                 Statement::Expr(s) => write!(f, ";\n")?,
                 Statement::Function(s) => write!(f, "\n")?,
-                Statement::Var(s) => write!(f, "\n")?,
+                Statement::Var(s) => write!(f, ";\n")?,
                 Statement::Simultaneous(s) => write!(f, "\n")?,
                 Statement::Free(s) => {
                     if s.has_block_statement() {
-                        write!(f, "\nwe?")?
+                        write!(f, "\n")?
                     } else {
                         write!(f, ";\n")?
                     }
