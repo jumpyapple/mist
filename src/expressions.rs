@@ -77,7 +77,7 @@ impl fmt::Display for NewExpression {
 }
 
 #[test]
-fn test_expressions_de() {
+fn test_expression_de() {
     // Literals: True, False, String, Number.
     let input = r#"{"expr_type": "Literal", "value": {"token_type": "True"}}"#;
     let result: NewExpression = serde_json::from_str(input).expect("failed to deserialize Expression::Literal (True)");

@@ -9,7 +9,9 @@ use crate::tokens::Value::NumberValue;
 #[serde(untagged)]
 pub enum NewDefaultValue {
     #[serde(rename = "null")]
-    NullStringDefault, // The "null".
+    // The "null". The String is needed for serde to capture the "null".
+    NullStringDefault(String),
+    // Has to be Expression because the default value can be an Expression::Literal.
     ExpressionDefault(Box<NewExpression>),
 }
 
@@ -18,7 +20,6 @@ pub enum NewDefaultValue {
 pub(crate) enum NewToken {
     True,
     False,
-    Null,
     Number { Value: f64 },
     String { value: String },
     Identifier { value: String, default_value: Option<NewDefaultValue> },
@@ -49,15 +50,17 @@ impl NewToken {
         match self {
             NewToken::True => write!(f, "true"),
             NewToken::False => write!(f, "false"),
-            NewToken::Null => write!(f, "null"),
             NewToken::Number { Value } => write!(f, "{}", Value),
             NewToken::String { value } => write!(f, "\"{}\"", value),
             NewToken::Identifier { value, default_value } => {
                 write!(f, "{}", value)?;
                 if let Some(v) = default_value {
                     match v {
-                        NewDefaultValue::NullStringDefault => write!(f, "null")?,
-                        NewDefaultValue::ExpressionDefault(exp) => todo!(),
+                        NewDefaultValue::NullStringDefault(_) => write!(f, " = null")?,
+                        NewDefaultValue::ExpressionDefault(exp) => {
+                            write!(f, " = ")?;
+                            exp.fmt_indented(f, 0)?;
+                        },
                     };
                 }
                 Ok(())
@@ -100,7 +103,7 @@ fn test_tokens_de() {
 
     let input = r#"{ "token_type": "Identifier", "value": "dir", "default_value": "null" }"#;
     let result: NewToken = serde_json::from_str(input).expect("failed to deserialize Identifier (with default value = \"null\")");
-    assert_eq!(result, NewToken::Identifier { value: "dir".to_string(), default_value: Some(NewDefaultValue::NullStringDefault) });
+    assert_eq!(result, NewToken::Identifier { value: "dir".to_string(), default_value: Some(NewDefaultValue::NullStringDefault("null".to_string())) });
 
     let input = r#"{"token_type": "DoubleEqual"}"#;
     let result: NewToken = serde_json::from_str(input).expect("failed to deserialize DoubleEqual");
@@ -111,6 +114,14 @@ fn test_tokens_de() {
 fn test_token_format_human() {
     let input = NewToken::String { value: "hello".to_string() };
     assert_eq!(format!("{}", input), "\"hello\"");
+
+    let input = NewToken::Identifier { value: "hello".to_string(), default_value: Some(NewDefaultValue::NullStringDefault("null".to_string())) };
+    assert_eq!(format!("{}", input), "hello = null");
+
+    let input = NewToken::Less;
+    assert_eq!(format!("{}", input), "<");
+    let input = NewToken::And;
+    assert_eq!(format!("{}", input), "&&");
 }
 
 

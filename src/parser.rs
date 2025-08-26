@@ -97,7 +97,7 @@ function hello_word(a, b) {
     );
     assert_eq!(lexer.next(), Some(Ok(LogosToken::ParenOpen)));
     assert_eq!(lexer.next(), Some(Ok(LogosToken::Identifier("a".to_owned()))));
-    assert_eq!(lexer.next(), Some(Ok(LogosToken::ParenOpen)));
+    assert_eq!(lexer.next(), Some(Ok(LogosToken::Comma)));
     assert_eq!(lexer.next(), Some(Ok(LogosToken::Identifier("b".to_owned()))));
     assert_eq!(lexer.next(), Some(Ok(LogosToken::ParenClose)));
 
