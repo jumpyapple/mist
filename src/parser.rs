@@ -1,5 +1,5 @@
-use crate::expressions::{Expression, ExpressionType, LiteralExpression};
-use crate::tokens::{TokenType, ValueToken};
+use crate::expressions::{NewExpression};
+use crate::tokens::NewToken;
 use chumsky::prelude::*;
 use logos::Logos;
 use std::fs;
@@ -96,17 +96,29 @@ function hello_word(a, b) {
         Some(Ok(LogosToken::Identifier("hello_word".to_owned())))
     );
     assert_eq!(lexer.next(), Some(Ok(LogosToken::ParenOpen)));
-    assert_eq!(lexer.next(), Some(Ok(LogosToken::Identifier("a".to_owned()))));
+    assert_eq!(
+        lexer.next(),
+        Some(Ok(LogosToken::Identifier("a".to_owned())))
+    );
     assert_eq!(lexer.next(), Some(Ok(LogosToken::Comma)));
-    assert_eq!(lexer.next(), Some(Ok(LogosToken::Identifier("b".to_owned()))));
+    assert_eq!(
+        lexer.next(),
+        Some(Ok(LogosToken::Identifier("b".to_owned())))
+    );
     assert_eq!(lexer.next(), Some(Ok(LogosToken::ParenClose)));
 
     assert_eq!(lexer.next(), Some(Ok(LogosToken::BraceOpen)));
 
     assert_eq!(lexer.next(), Some(Ok(LogosToken::Return)));
-    assert_eq!(lexer.next(), Some(Ok(LogosToken::Identifier("a".to_owned()))));
+    assert_eq!(
+        lexer.next(),
+        Some(Ok(LogosToken::Identifier("a".to_owned())))
+    );
     assert_eq!(lexer.next(), Some(Ok(LogosToken::Plus)));
-    assert_eq!(lexer.next(), Some(Ok(LogosToken::Identifier("b".to_owned()))));
+    assert_eq!(
+        lexer.next(),
+        Some(Ok(LogosToken::Identifier("b".to_owned())))
+    );
     assert_eq!(lexer.next(), Some(Ok(LogosToken::Semicolon)));
 
     assert_eq!(lexer.next(), Some(Ok(LogosToken::BraceClose)));
@@ -115,7 +127,7 @@ function hello_word(a, b) {
 #[test]
 fn test_lexer_with_file() {
     let filename = ".\\output\\day_zero.mist.txt";
-    let input   = std::fs::read_to_string(filename).unwrap();
+    let input = std::fs::read_to_string(filename).unwrap();
     let mut lexer = LogosToken::lexer(input.as_str());
     while let Some(Ok(token)) = lexer.next() {
         println!("{:?}", token);

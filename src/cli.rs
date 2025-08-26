@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use clap::{Parser, Subcommand};
+use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
 #[command(name = "mist")]
@@ -16,7 +16,7 @@ pub(crate) enum Commands {
     List {
         /// A path to the mist file to list mists' name from
         #[arg(value_name = "PATH")]
-        mist_path: PathBuf
+        mist_path: PathBuf,
     },
     /// Show information of a mist
     #[command(arg_required_else_help = true)]

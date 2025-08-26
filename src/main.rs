@@ -1,16 +1,16 @@
+mod cli;
 mod expressions;
 mod parser;
 mod statements;
 mod tokens;
-mod cli;
 
+use crate::cli::{Cli, Commands};
+use crate::statements::NewStatement;
+use clap::Parser;
 use core::fmt;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use clap::Parser;
-use crate::statements::Statement;
-use serde::{Deserialize, Serialize};
-use crate::cli::{Cli, Commands};
 
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
@@ -31,7 +31,7 @@ impl MistContainer {
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
 struct Mist {
-    statements: Vec<Statement>,
+    statements: Vec<NewStatement>,
 }
 
 impl fmt::Display for Mist {
@@ -39,20 +39,20 @@ impl fmt::Display for Mist {
         for stmt in &self.statements {
             stmt.fmt_indented(f, 0)?;
             match stmt {
-                Statement::Block(_) => write!(f, "")?,
-                Statement::Expr(_) => write!(f, ";\n")?,
-                Statement::Function(_) => write!(f, "\n")?,
-                Statement::Var(_) => write!(f, ";\n")?,
-                Statement::Simultaneous(_) => write!(f, "\n")?,
-                Statement::Free(s) => {
-                    if s.has_block_statement() {
+                NewStatement::Block { .. } => write!(f, "")?,
+                NewStatement::Expr { .. } => write!(f, ";\n")?,
+                NewStatement::Function { .. } => write!(f, "\n")?,
+                NewStatement::Var { .. } => write!(f, ";\n")?,
+                NewStatement::Simultaneous { .. } => write!(f, "\n")?,
+                NewStatement::Free { stmt } => {
+                    if stmt.free_has_block_statement() {
                         write!(f, "\n")?
                     } else {
                         write!(f, ";\n")?
                     }
                 }
-                Statement::If(_) => write!(f, "\n")?,
-                Statement::Return(_) => write!(f, "")?,
+                NewStatement::If { .. } => write!(f, "\n")?,
+                NewStatement::Return { .. } => write!(f, "")?,
             }
         }
         Ok(())
@@ -68,48 +68,58 @@ fn main() {
             match result {
                 Ok(data) => {
                     let json_deserializer = &mut serde_json::Deserializer::from_str(data.as_str());
-                    let result: Result<MistContainer, _> = serde_path_to_error::deserialize(json_deserializer);
+                    let result: Result<MistContainer, _> =
+                        serde_path_to_error::deserialize(json_deserializer);
                     match result {
                         Ok(mist_container) => {
                             println!("Found {} mists:", mist_container.mists.len());
-                            let mut mist_names = mist_container.mists.keys().collect::<Vec<&String>>();
+                            let mut mist_names =
+                                mist_container.mists.keys().collect::<Vec<&String>>();
                             mist_names.sort();
                             for name in mist_names {
                                 println!("{}", name);
                             }
-                        },
+                        }
                         Err(err) => {
                             let error_path = err.path().to_string();
                             println!("Error: '{}' occur at path '{}'", err, error_path);
                         }
                     }
-                },
-                Err(err) => println!("Error: {}", err)
+                }
+                Err(err) => println!("Error: {}", err),
             }
-        },
-        Commands::Info { mist_path, mist_name } => {
+        }
+        Commands::Info {
+            mist_path,
+            mist_name,
+        } => {
             let result = fs::read_to_string(mist_path.clone());
             match result {
                 Ok(data) => {
                     let json_deserializer = &mut serde_json::Deserializer::from_str(data.as_str());
-                    let result: Result<MistContainer, _> = serde_path_to_error::deserialize(json_deserializer);
+                    let result: Result<MistContainer, _> =
+                        serde_path_to_error::deserialize(json_deserializer);
                     match result {
                         Ok(mist_container) => {
                             if mist_container.mists.contains_key(&mist_name) {
                                 let mist = mist_container.mists.get(&mist_name).unwrap();
                                 println!("Mist: '{}'", mist_name);
-                                println!(" - {} statements",  mist.statements.len());
+                                println!(" - {} statements", mist.statements.len());
                             } else {
-                                println!("No mist with name '{}' found in file '{}'.", mist_name, mist_path.display());
+                                println!(
+                                    "No mist with name '{}' found in file '{}'.",
+                                    mist_name,
+                                    mist_path.display()
+                                );
                             }
-                        },
+                        }
                         Err(err) => {
                             let error_path = err.path().to_string();
                             println!("Error: '{}' occur at path '{}'", err, error_path);
                         }
                     }
-                },
-                Err(err) => println!("Error: {}", err)
+                }
+                Err(err) => println!("Error: {}", err),
             }
         }
     }
