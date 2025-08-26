@@ -45,7 +45,7 @@ impl fmt::Display for Mist {
                 Statement::Var { .. } => write!(f, ";\n")?,
                 Statement::Simultaneous { .. } => write!(f, "\n")?,
                 Statement::Free { stmt } => {
-                    if stmt.free_has_block_statement() {
+                    if stmt.should_skip_semicolon() {
                         write!(f, "\n")?
                     } else {
                         write!(f, ";\n")?
@@ -115,7 +115,52 @@ fn main() {
                         }
                         Err(err) => {
                             let error_path = err.path().to_string();
-                            println!("Error: '{}' occur at path '{}'", err, error_path);
+                            println!(
+                                "Error: '{}' occurs while parsing at path '{}'",
+                                err, error_path
+                            );
+                        }
+                    }
+                }
+                Err(err) => println!("Error: {}", err),
+            }
+        }
+        Commands::Extract {
+            mist_path,
+            mist_name,
+            raw,
+        } => {
+            let result = fs::read_to_string(mist_path.clone());
+            match result {
+                Ok(data) => {
+                    if raw {
+                        println!("{}", data);
+                    } else {
+                        let json_deserializer =
+                            &mut serde_json::Deserializer::from_str(data.as_str());
+                        let result: Result<MistContainer, _> =
+                            serde_path_to_error::deserialize(json_deserializer);
+
+                        match result {
+                            Ok(mist_container) => {
+                                if mist_container.mists.contains_key(&mist_name) {
+                                    let mist = mist_container.mists.get(&mist_name).unwrap();
+                                    println!("{}", mist);
+                                } else {
+                                    println!(
+                                        "No mist with name '{}' found in file '{}'.",
+                                        mist_name,
+                                        mist_path.display()
+                                    );
+                                }
+                            }
+                            Err(err) => {
+                                let error_path = err.path().to_string();
+                                println!(
+                                    "Error: '{}' occurs while parsing at path '{}'",
+                                    err, error_path
+                                );
+                            }
                         }
                     }
                 }

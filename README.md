@@ -55,7 +55,7 @@ set mist_name "adeline_eight_hearts.mist"
 
 for mist_name in $mist_names 
   echo "Processing $mist_name";
-  ./target/debug/mist.exe "./mists/$mist_name.json" > "./output/$mist_name.txt";
+  ./target/debug/mist.exe extract "./mists/$mist_name.json" "$mist_name" > "./output/$mist_name.txt";
 end
 
 for mist_name in $mist_names

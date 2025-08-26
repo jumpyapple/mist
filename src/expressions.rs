@@ -41,11 +41,7 @@ pub enum Expression {
 }
 
 impl Expression {
-    pub(crate) fn fmt_indented(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        indent: usize,
-    ) -> fmt::Result {
+    pub(crate) fn fmt_indented(&self, f: &mut fmt::Formatter<'_>, indent: usize) -> fmt::Result {
         let current_indent = " ".repeat(indent * 4);
         write!(f, "{}", current_indent)?;
         match self {

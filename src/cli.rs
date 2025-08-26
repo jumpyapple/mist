@@ -11,7 +11,7 @@ pub(crate) struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub(crate) enum Commands {
-    /// List the name of mists in a file.
+    /// List the name of mists in a file
     #[command(arg_required_else_help = true)]
     List {
         /// A path to the mist file to list mists' name from
@@ -21,11 +21,26 @@ pub(crate) enum Commands {
     /// Show information of a mist
     #[command(arg_required_else_help = true)]
     Info {
-        /// A path to the mist file containing mists.
+        /// A path to the mist file containing mists
         #[arg(value_name = "PATH")]
         mist_path: PathBuf,
         /// The name of the mist.
         #[arg(value_name = "NAME")]
         mist_name: String,
+    },
+    /// Extract a mist from a file
+    #[command(arg_required_else_help = true)]
+    Extract {
+        /// A path to the mist file containing mists
+        #[arg(value_name = "PATH")]
+        mist_path: PathBuf,
+
+        /// The name of the mist.
+        #[arg(value_name = "NAME")]
+        mist_name: String,
+
+        /// Extract the raw version instead of a human-readable one
+        #[arg(short = 'r', long = "raw")]
+        raw: bool,
     },
 }

@@ -1,16 +1,18 @@
 use crate::tokens::Token;
-use std::fmt;
+use std::{fmt, fs};
 use std::fmt::Formatter;
 
 use crate::expressions::Expression;
-use serde::{Deserialize, Serialize};
+use crate::statements::Optional::OptionalExpression;
+use serde::de::IntoDeserializer;
+use serde::{Deserialize, Deserializer, Serialize};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(untagged)]
-pub enum OptionalStatement {
-    #[serde(rename = "null")]
-    NullString, // The "null".
-    BlockStatement(Box<Statement>),
+pub enum Optional {
+    NullString(String), // The "null".
+    OptionalStatement(Box<Statement>),
+    OptionalExpression(Box<Expression>),
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
@@ -26,7 +28,7 @@ pub enum Statement {
         name: Token,
         params: Vec<Token>,
         body: Box<Statement>,
-        resolve: Option<OptionalStatement>,
+        resolve: Option<Optional>,
     },
     Var {
         name: Token,
@@ -41,29 +43,27 @@ pub enum Statement {
     If {
         condition: Expression,
         then_branch: Box<Statement>,
-        else_branch: Option<OptionalStatement>,
+        else_branch: Option<Optional>,
     },
     Return {
-        value: Option<Expression>,
+        value: Option<Optional>,
     },
 }
 
 impl Statement {
-    pub(crate) fn free_has_block_statement(&self) -> bool {
+    pub(crate) fn should_skip_semicolon(&self) -> bool {
         match self {
             Statement::Free { stmt } => match *(*stmt) {
                 Statement::Block { .. } => true,
                 _ => false,
             },
+            Statement::Block { .. } => true,
+            Statement::Simultaneous { .. } => true,
             _ => false,
         }
     }
 
-    pub(crate) fn fmt_indented(
-        &self,
-        f: &mut Formatter<'_>,
-        indent: usize,
-    ) -> fmt::Result {
+    pub(crate) fn fmt_indented(&self, f: &mut Formatter<'_>, indent: usize) -> fmt::Result {
         let current_indent = " ".repeat(indent * 4);
 
         write!(f, "{}", current_indent)?;
@@ -77,18 +77,18 @@ impl Statement {
                 }
                 for stmt in stmts {
                     // Handle the indentation and reset the indent level.
-                    write!(f, "{}", " ".repeat((indent + 1) * 4))?;
-                    stmt.fmt_indented(f, 0)?;
+                    // write!(f, "{}", " ".repeat((indent + 1) * 4))?;
+                    stmt.fmt_indented(f, indent + 1)?;
 
                     // Handle ";\n" for every statement within the block.
                     // Except when it is another Block.
-                    if !stmt.free_has_block_statement() {
+                    if !stmt.should_skip_semicolon() {
                         write!(f, ";\n")?;
                     }
                 }
                 writeln!(f, "{}}}", current_indent)
             }
-            Statement::Expr { expr } => expr.fmt_indented(f, indent),
+            Statement::Expr { expr } => expr.fmt_indented(f, 0),
             Statement::Function {
                 name,
                 params,
@@ -112,11 +112,12 @@ impl Statement {
                 // Not sure what syntax should look like.
                 if let Some(r) = resolve.as_ref() {
                     match r {
-                        OptionalStatement::NullString => write!(f, ""),
-                        OptionalStatement::BlockStatement(stmt) => {
+                        Optional::NullString(_) => write!(f, ""),
+                        Optional::OptionalStatement(stmt) => {
                             writeln!(f, "=>")?;
                             stmt.fmt_indented(f, indent)
                         }
+                        _ => write!(f, "([!!] Did not expect OptionalExpression.)"),
                     }?;
                 }
                 Ok(())
@@ -157,11 +158,12 @@ impl Statement {
                 then_branch.fmt_indented(f, indent)?;
                 if let Some(opt_st) = else_branch {
                     match opt_st {
-                        OptionalStatement::NullString => (),
-                        OptionalStatement::BlockStatement(st) => {
+                        Optional::NullString(_) => (),
+                        Optional::OptionalStatement(st) => {
                             writeln!(f, "{}else", current_indent)?;
                             st.fmt_indented(f, indent)?;
                         }
+                        _ => write!(f, "([!!] Did not expect OptionalExpression.)")?,
                     }
                 }
 
@@ -170,7 +172,13 @@ impl Statement {
             Statement::Return { value } => {
                 write!(f, "return ")?;
                 if let Some(v) = value {
-                    v.fmt_indented(f, 0)
+                    match v {
+                        Optional::NullString(_) => write!(f, "null"),
+                        Optional::OptionalExpression(expr) => expr.fmt_indented(f, 0),
+                        Optional::OptionalStatement(_) => {
+                            write!(f, "([!!] Statement is used with Return)")
+                        }
+                    }
                     // ";\n" is handled by the Block.
                 } else {
                     write!(f, "null")
@@ -208,12 +216,12 @@ fn test_statement_de() {
         result,
         Statement::Block {
             stmts: vec!(Statement::Return {
-                value: Some(Expression::Named {
+                value: Some(Optional::OptionalExpression(Box::from(Expression::Named {
                     name: Token::Identifier {
                         value: "target_time".to_string(),
                         default_value: None
                     }
-                })
+                })))
             })
         }
     );
@@ -252,30 +260,233 @@ fn test_statement_de() {
     assert_eq!(
         result,
         Statement::Return {
-            value: Some(Expression::Binary {
-                operator: Token::DoubleEqual,
-                left: Box::from(Expression::Binary {
-                    operator: Token::Plus,
-                    left: Box::from(Expression::Named {
-                        name: Token::Identifier {
-                            value: "start".to_string(),
-                            default_value: None
-                        }
+            value: Some(Optional::OptionalExpression(Box::from(
+                Expression::Binary {
+                    operator: Token::DoubleEqual,
+                    left: Box::from(Expression::Binary {
+                        operator: Token::Plus,
+                        left: Box::from(Expression::Named {
+                            name: Token::Identifier {
+                                value: "start".to_string(),
+                                default_value: None
+                            }
+                        }),
+                        right: Box::from(Expression::Named {
+                            name: Token::Identifier {
+                                value: "timer".to_string(),
+                                default_value: None
+                            }
+                        }),
                     }),
                     right: Box::from(Expression::Named {
                         name: Token::Identifier {
-                            value: "timer".to_string(),
+                            value: "target_time".to_string(),
                             default_value: None
                         }
                     }),
-                }),
-                right: Box::from(Expression::Named {
+                }
+            )))
+        }
+    );
+
+    let input = r#"{ "stmt_type": "Return", "value": "null" }"#;
+    let result: Statement =
+        serde_json::from_str(input).expect("failed to deserialize Statement::Return with \"null\"");
+    assert_eq!(
+        result,
+        Statement::Return {
+            value: Some(Optional::NullString("null".to_string()))
+        }
+    );
+}
+
+#[test]
+fn test_function_de_with_resolve_null() {
+    let input = r#"
+{
+    "stmt_type": "Function",
+    "name": {
+        "token_type": "Identifier",
+        "value": "magic_circle_sound"
+    },
+    "params": [],
+    "body": {
+        "stmt_type": "Block",
+        "stmts": [
+            {
+                "stmt_type": "Expr",
+                "expr": {
+                    "expr_type": "Call",
+                    "call": {
+                        "expr_type": "Named",
+                        "name": {
+                            "token_type": "Identifier",
+                            "value": "play_sound"
+                        }
+                    },
+                    "args": [
+                        {
+                            "expr_type": "Literal",
+                            "value": {
+                                "token_type": "String",
+                                "value": "SoundEffects/SpecialEvents/MagicCirclePulse"
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    },
+    "resolve": "null"
+}
+"#;
+    let func_name = Token::Identifier {
+        value: "magic_circle_sound".to_string(),
+        default_value: None,
+    };
+    let func_body = Statement::Block {
+        stmts: vec![Statement::Expr {
+            expr: Box::from(Expression::Call {
+                call: Box::from(Expression::Named {
                     name: Token::Identifier {
-                        value: "target_time".to_string(),
-                        default_value: None
-                    }
+                        value: "play_sound".to_string(),
+                        default_value: None,
+                    },
                 }),
-            })
+                args: vec![Expression::Literal {
+                    value: Token::String {
+                        value: "SoundEffects/SpecialEvents/MagicCirclePulse".to_string(),
+                    },
+                }],
+            }),
+        }],
+    };
+    let result: Statement = serde_json::from_str(input)
+        .expect("failed to deserialize Statement::Function (resolve = \"null\")");
+    assert_eq!(
+        result,
+        Statement::Function {
+            name: func_name,
+            params: vec![],
+            body: Box::from(func_body),
+            resolve: Some(Optional::NullString("null".to_string())),
+        }
+    );
+}
+
+#[test]
+fn test_function_de_with_resolve_statement() {
+    let input = r#"
+{
+    "stmt_type": "Function",
+    "name": {
+        "token_type": "Identifier",
+        "value": "magic_circle_sound"
+    },
+    "params": [],
+    "body": {
+        "stmt_type": "Block",
+        "stmts": [
+            {
+                "stmt_type": "Expr",
+                "expr": {
+                    "expr_type": "Call",
+                    "call": {
+                        "expr_type": "Named",
+                        "name": {
+                            "token_type": "Identifier",
+                            "value": "play_sound"
+                        }
+                    },
+                    "args": [
+                        {
+                            "expr_type": "Literal",
+                            "value": {
+                                "token_type": "String",
+                                "value": "SoundEffects/SpecialEvents/MagicCirclePulse"
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    },
+    "resolve": {
+        "stmt_type": "Block",
+        "stmts": [
+            {
+                "stmt_type": "Return",
+                "value": {
+                    "expr_type": "Call",
+                    "call": {
+                        "expr_type": "Named",
+                        "name": {
+                            "token_type": "Identifier",
+                            "value": "quest_is_active"
+                        }
+                    },
+                    "args": [
+                        {
+                            "expr_type": "Literal",
+                            "value": {
+                                "token_type": "String",
+                                "value": "greet_the_townsfolk"
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+}
+"#;
+    let func_name = Token::Identifier {
+        value: "magic_circle_sound".to_string(),
+        default_value: None,
+    };
+    let func_body = Statement::Block {
+        stmts: vec![Statement::Expr {
+            expr: Box::from(Expression::Call {
+                call: Box::from(Expression::Named {
+                    name: Token::Identifier {
+                        value: "play_sound".to_string(),
+                        default_value: None,
+                    },
+                }),
+                args: vec![Expression::Literal {
+                    value: Token::String {
+                        value: "SoundEffects/SpecialEvents/MagicCirclePulse".to_string(),
+                    },
+                }],
+            }),
+        }],
+    };
+    let resolve_body = Statement::Block {
+        stmts: vec![Statement::Return {
+            value: Some(OptionalExpression(Box::from(Expression::Call {
+                call: Box::from(Expression::Named {
+                    name: Token::Identifier {
+                        value: "quest_is_active".to_string(),
+                        default_value: None,
+                    },
+                }),
+                args: vec![Expression::Literal {
+                    value: Token::String {
+                        value: "greet_the_townsfolk".to_string(),
+                    },
+                }],
+            }))),
+        }],
+    };
+    let result: Statement = serde_json::from_str(input)
+        .expect("failed to deserialize Statement::Function (resolve = \"null\")");
+    assert_eq!(
+        result,
+        Statement::Function {
+            name: func_name,
+            params: vec![],
+            body: Box::from(func_body),
+            resolve: Some(Optional::OptionalStatement(Box::from(resolve_body))),
         }
     );
 }
@@ -291,11 +502,13 @@ fn test_statement_format_human() {
         params: vec![],
         body: Box::from(Statement::Block {
             stmts: vec![Statement::Return {
-                value: Some(Expression::Literal {
-                    value: Token::String {
-                        value: "world!".to_string(),
+                value: Some(Optional::OptionalExpression(Box::from(
+                    Expression::Literal {
+                        value: Token::String {
+                            value: "world!".to_string(),
+                        },
                     },
-                }),
+                ))),
             }],
         }),
         resolve: None,

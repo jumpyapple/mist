@@ -1,16 +1,8 @@
 use crate::expressions::Expression;
+use crate::statements::Optional;
+use crate::statements::Statement::Expr;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
-#[serde(untagged)]
-pub enum DefaultValue {
-    #[serde(rename = "null")]
-    // The "null". The String is needed for serde to capture the "null".
-    NullStringDefault(String),
-    // Has to be Expression because the default value can be an Expression::Literal.
-    ExpressionDefault(Box<Expression>),
-}
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(tag = "token_type")]
@@ -26,7 +18,7 @@ pub(crate) enum Token {
     },
     Identifier {
         value: String,
-        default_value: Option<DefaultValue>,
+        default_value: Option<Optional>,
     },
 
     // Operators.
@@ -47,11 +39,7 @@ pub(crate) enum Token {
 }
 
 impl Token {
-    pub(crate) fn fmt_indented(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        _indent: usize,
-    ) -> fmt::Result {
+    pub(crate) fn fmt_indented(&self, f: &mut fmt::Formatter<'_>, _indent: usize) -> fmt::Result {
         match self {
             Token::True => write!(f, "true"),
             Token::False => write!(f, "false"),
@@ -64,11 +52,12 @@ impl Token {
                 write!(f, "{}", value)?;
                 if let Some(v) = default_value {
                     match v {
-                        DefaultValue::NullStringDefault(_) => write!(f, " = null")?,
-                        DefaultValue::ExpressionDefault(exp) => {
+                        Optional::NullString(_) => write!(f, " = null")?,
+                        Optional::OptionalExpression(exp) => {
                             write!(f, " = ")?;
                             exp.fmt_indented(f, 0)?;
                         }
+                        _ => write!(f, "([!!] Did not expect OptionalStatement.)")?,
                     };
                 }
                 Ok(())
@@ -127,13 +116,52 @@ fn test_tokens_de() {
         result,
         Token::Identifier {
             value: "dir".to_string(),
-            default_value: Some(DefaultValue::NullStringDefault("null".to_string()))
+            default_value: Some(Optional::NullString("null".to_string()))
         }
     );
 
     let input = r#"{"token_type": "DoubleEqual"}"#;
     let result: Token = serde_json::from_str(input).expect("failed to deserialize DoubleEqual");
     assert_eq!(result, Token::DoubleEqual);
+}
+
+#[test]
+fn test_identifier_de_with_default_value_null() {
+    let input = r#"{"token_type": "Identifier", "value": "__get_new_day_spawn_x", "default_value": "null" }"#;
+    let result: Token = serde_json::from_str(input).expect("failed to deserialize Identifier");
+    assert_eq!(
+        result,
+        Token::Identifier {
+            value: "__get_new_day_spawn_x".to_string(),
+            default_value: Some(Optional::NullString("null".to_string()))
+        }
+    );
+}
+
+#[test]
+fn test_identifier_de_with_default_value_expr() {
+    let input = r#"
+{
+    "token_type": "Identifier",
+    "value": "__get_new_day_spawn_x",
+    "default_value": {
+        "expr_type": "Literal",
+        "value": { "token_type": "Number", "Value": 0.0}
+    }
+}
+    "#;
+    let result: Token = serde_json::from_str(input).expect("failed to deserialize Identifier");
+    assert_eq!(
+        result,
+        Token::Identifier {
+            value: "__get_new_day_spawn_x".to_string(),
+            default_value: Some(Optional::OptionalExpression(Box::from(
+                Expression::Literal {
+                    value: Token::Number { value: 0.0 }
+                },
+            )))
+        }
+    );
 }
 
 #[test]
@@ -145,7 +173,7 @@ fn test_token_format_human() {
 
     let input = Token::Identifier {
         value: "hello".to_string(),
-        default_value: Some(DefaultValue::NullStringDefault("null".to_string())),
+        default_value: Some(Optional::NullString("null".to_string())),
     };
     assert_eq!(format!("{}", input), "hello = null");
 
