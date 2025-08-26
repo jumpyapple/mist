@@ -76,8 +76,11 @@ impl NewStatement {
                     // E.g. an empty function that is used for its "resolve".
                     // write!(f, "stmts has zero length!!!");
                 }
-                for stmt in stmts {
-                    stmt.fmt_indented(f, indent + 1)?;
+                for (index, stmt) in stmts.iter().enumerate() {
+                    // Handle the indentation and reset the indent level.
+                    write!(f, "{}", " ".repeat((indent + 1) * 4))?;
+                    stmt.fmt_indented(f, 0)?;
+
                     // Handle ";\n" for every statement within the block.
                     // Except when it is another Block.
                     if !stmt.free_has_block_statement() {
@@ -86,7 +89,7 @@ impl NewStatement {
                 }
                 writeln!(f, "{}}}", current_indent)
             }
-            NewStatement::Expr { .. } => todo!(),
+            NewStatement::Expr { expr } => expr.fmt_indented(f, indent),
             NewStatement::Function {
                 name,
                 params,
@@ -127,9 +130,44 @@ impl NewStatement {
                 // a Var statement in a block will get its ;\m handled by the block.
                 // However, the top level container needs to handle the ";\n" line end.
             }
-            NewStatement::Simultaneous { .. } => todo!(),
-            NewStatement::Free { .. } => todo!(),
-            NewStatement::If { .. } => todo!(),
+            NewStatement::Simultaneous { body } => {
+                writeln!(f, "simultaneous")?;
+                body.fmt_indented(f, indent)
+            }
+            NewStatement::Free { stmt } => {
+                write!(f, "free")?;
+                match stmt.as_ref() {
+                    NewStatement::Block { .. } => {
+                        write!(f, "\n")?;
+                        stmt.as_ref().fmt_indented(f, indent)
+                    }
+                    _ => {
+                        write!(f, " ")?;
+                        stmt.fmt_indented(f, 0)
+                    }
+                }
+            }
+            NewStatement::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                write!(f, "if (")?;
+                condition.fmt_indented(f, 0)?;
+                writeln!(f, ")")?;
+                then_branch.fmt_indented(f, indent)?;
+                if let Some(opt_st) = else_branch {
+                    match opt_st {
+                        OptionalStatement::NullString => (),
+                        OptionalStatement::BlockStatement(st) => {
+                            writeln!(f, "{}else", current_indent)?;
+                            st.fmt_indented(f, indent)?;
+                        }
+                    }
+                }
+
+                Ok(())
+            }
             NewStatement::Return { value } => {
                 write!(f, "return ")?;
                 if let Some(v) = value {
@@ -273,7 +311,7 @@ fn test_statement_format_human() {
     );
 
     // Var.
-    let input = NewStatement::Var {
+    let var_stmt = NewStatement::Var {
         name: NewToken::Identifier {
             value: "timer".to_string(),
             default_value: None,
@@ -292,40 +330,91 @@ fn test_statement_format_human() {
         },
     };
     // This one is at the top-level, so no ";\n" is expected.
-    assert_eq!(
-        format!("{}", input),
-        r#"var timer = seconds * 60"#
-    );
+    assert_eq!(format!("{}", var_stmt), r#"var timer = seconds * 60"#);
 
-    let input = NewStatement::Block { stmts: vec!(
-        NewStatement::Var {
-            name: NewToken::Identifier {
-                value: "timer".to_string(),
-                default_value: None,
-            },
-            initializer: NewExpression::Binary {
-                operator: NewToken::Plus,
-                left: Box::from(NewExpression::Named {
-                    name: NewToken::Identifier {
-                        value: "seconds".to_string(),
-                        default_value: None,
-                    },
-                }),
-                right: Box::from(NewExpression::Literal {
-                    value: NewToken::Number { Value: 60.0 },
-                }),
-            },
-        }
-    ) };
+    let input = NewStatement::Block {
+        stmts: vec![var_stmt],
+    };
     // This is Var in a Block, so ";\n" is expected.
     assert_eq!(
         format!("{}", input),
         r#"{
-    var timer = seconds + 60;
+    var timer = seconds * 60;
 }
 "#
     );
 
+    // Simultaneous.
+    let input = NewStatement::Simultaneous { body: Box::from(NewStatement::Block { stmts: vec![
+        NewStatement::Expr { expr: Box::from(NewExpression::Call {
+            call: Box::from(NewExpression::Named { name: NewToken::Identifier { value: "animate".to_string(), default_value: None }}),
+            args: vec![
+                NewExpression::Literal { value: NewToken::Identifier { value: "adeline".to_string(), default_value: None } },
+                NewExpression::Literal { value: NewToken::Identifier { value: "idle".to_string(), default_value: None } },
+            ],
+        }) }
+    ] }) };
+    assert_eq!(format!("{}", input), r#"simultaneous
+{
+    animate(adeline, idle);
+}
+"#
+    );
+
+    // Free.
+    let input = NewStatement::Free {
+        stmt: Box::from(NewStatement::Expr { expr: Box::from(NewExpression::Call {
+            call: Box::from(NewExpression::Named { name: NewToken::Identifier { value: "bark_speech".to_string(), default_value: None }}),
+            args: vec![
+                NewExpression::Literal { value: NewToken::Identifier { value: "adeline".to_string(), default_value: None } },
+                NewExpression::Literal { value: NewToken::Identifier { value: "exclamation_mark".to_string(), default_value: None } },
+            ],
+        }) })
+    };
+    assert_eq!(format!("{}", input), "free bark_speech(adeline, exclamation_mark)");
+
+    // If.
+    let input = NewStatement::If {
+        condition: NewExpression::Binary {
+            operator: NewToken::DoubleEqual,
+            left: Box::from(NewExpression::Call {
+                call: Box::from(NewExpression::Named {
+                    name: NewToken::Identifier {
+                        value: "get_response".to_string(),
+                        default_value: None,
+                    },
+                }),
+                args: vec![],
+            }),
+            right: Box::from(NewExpression::Literal {
+                value: NewToken::Number { Value: 0.0 },
+            }),
+        },
+        then_branch: Box::from(NewStatement::Block {
+            stmts: vec![NewStatement::Expr {
+                expr: Box::from(NewExpression::Call {
+                    call: Box::from(NewExpression::Named {
+                        name: NewToken::Identifier {
+                            value: "wait".to_string(),
+                            default_value: None,
+                        },
+                    }),
+                    args: vec![NewExpression::Literal {
+                        value: NewToken::Number { Value: 1.0 },
+                    }],
+                }),
+            }],
+        }),
+        else_branch: None,
+    };
+    assert_eq!(
+        format!("{}", input),
+        r#"if (get_response() == 0)
+{
+    wait(1);
+}
+"#
+    );
 }
 
 #[derive(Serialize, Deserialize)]
