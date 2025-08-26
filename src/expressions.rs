@@ -1,61 +1,61 @@
-use crate::tokens::NewToken;
+use crate::tokens::Token;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(tag = "expr_type")]
-pub enum NewExpression {
+pub enum Expression {
     Literal {
-        value: NewToken,
+        value: Token,
     },
     Named {
-        name: NewToken,
+        name: Token,
     },
     Unary {
-        operator: NewToken,
-        right: Box<NewExpression>,
+        operator: Token,
+        right: Box<Expression>,
     },
     Binary {
-        operator: NewToken,
-        left: Box<NewExpression>,
-        right: Box<NewExpression>,
+        operator: Token,
+        left: Box<Expression>,
+        right: Box<Expression>,
     },
     Logical {
-        operator: NewToken,
-        left: Box<NewExpression>,
-        right: Box<NewExpression>,
+        operator: Token,
+        left: Box<Expression>,
+        right: Box<Expression>,
     },
     // Technically, only Named Identifier should be allowed as name.
     Assign {
-        name: Box<NewExpression>,
-        value: Box<NewExpression>,
+        name: Box<Expression>,
+        value: Box<Expression>,
     },
     // Technically, only Named Identifier should be allowed as call.
     Call {
-        call: Box<NewExpression>,
-        args: Vec<NewExpression>,
+        call: Box<Expression>,
+        args: Vec<Expression>,
     },
     Grouping {
-        expr: Box<NewExpression>,
+        expr: Box<Expression>,
     },
 }
 
-impl NewExpression {
+impl Expression {
     pub(crate) fn fmt_indented(
         &self,
-        f: &mut std::fmt::Formatter<'_>,
+        f: &mut fmt::Formatter<'_>,
         indent: usize,
-    ) -> std::fmt::Result {
+    ) -> fmt::Result {
         let current_indent = " ".repeat(indent * 4);
         write!(f, "{}", current_indent)?;
         match self {
-            NewExpression::Literal { value } => value.fmt_indented(f, indent),
-            NewExpression::Named { name } => name.fmt_indented(f, indent),
-            NewExpression::Unary { operator, right } => {
+            Expression::Literal { value } => value.fmt_indented(f, indent),
+            Expression::Named { name } => name.fmt_indented(f, indent),
+            Expression::Unary { operator, right } => {
                 operator.fmt_indented(f, 0)?;
                 right.fmt_indented(f, 0)
             }
-            NewExpression::Binary {
+            Expression::Binary {
                 operator,
                 left,
                 right,
@@ -66,7 +66,7 @@ impl NewExpression {
                 write!(f, " ")?;
                 right.fmt_indented(f, 0)
             }
-            NewExpression::Logical {
+            Expression::Logical {
                 operator,
                 left,
                 right,
@@ -75,12 +75,12 @@ impl NewExpression {
                 operator.fmt_indented(f, 0)?;
                 right.fmt_indented(f, 0)
             }
-            NewExpression::Assign { name, value } => {
+            Expression::Assign { name, value } => {
                 name.fmt_indented(f, 0)?;
                 write!(f, " = ")?;
                 value.fmt_indented(f, 0)
             }
-            NewExpression::Call { call, args } => {
+            Expression::Call { call, args } => {
                 call.fmt_indented(f, indent)?;
                 write!(f, "(")?;
                 for (index, arg) in args.iter().enumerate() {
@@ -91,7 +91,7 @@ impl NewExpression {
                 }
                 write!(f, ")")
             }
-            NewExpression::Grouping { expr } => {
+            Expression::Grouping { expr } => {
                 write!(f, "(")?;
                 expr.fmt_indented(f, 0)?;
                 write!(f, ")")
@@ -100,7 +100,7 @@ impl NewExpression {
     }
 }
 
-impl fmt::Display for NewExpression {
+impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.fmt_indented(f, 0)
     }
@@ -110,47 +110,42 @@ impl fmt::Display for NewExpression {
 fn test_expression_de() {
     // Literals: True, False, String, Number.
     let input = r#"{"expr_type": "Literal", "value": {"token_type": "True"}}"#;
-    let result: NewExpression =
+    let result: Expression =
         serde_json::from_str(input).expect("failed to deserialize Expression::Literal (True)");
-    assert_eq!(
-        result,
-        NewExpression::Literal {
-            value: NewToken::True
-        }
-    );
+    assert_eq!(result, Expression::Literal { value: Token::True });
 
     let input =
         r#"{"expr_type": "Literal", "value": {"token_type": "String", "value": "Hello Mistrian"}}"#;
-    let result: NewExpression =
+    let result: Expression =
         serde_json::from_str(input).expect("failed to deserialize Expression::Literal (String)");
     assert_eq!(
         result,
-        NewExpression::Literal {
-            value: NewToken::String {
+        Expression::Literal {
+            value: Token::String {
                 value: "Hello Mistrian".to_owned()
             }
         }
     );
 
     let input = r#"{"expr_type": "Literal", "value": {"token_type": "Number", "Value": 0.341}}"#;
-    let result: NewExpression =
+    let result: Expression =
         serde_json::from_str(input).expect("failed to deserialize Expression::Literal (String)");
     assert_eq!(
         result,
-        NewExpression::Literal {
-            value: NewToken::Number { Value: 0.341 }
+        Expression::Literal {
+            value: Token::Number { value: 0.341 }
         }
     );
 
     // Named.
     let input = r#"{ "expr_type": "Named", "name": { "token_type": "Identifier", "value": "__get_new_day_spawn_x" }}"#;
-    let result: NewExpression =
+    let result: Expression =
         serde_json::from_str(input).expect("failed to deserialize Expression::Named");
-    let token = NewToken::Identifier {
+    let token = Token::Identifier {
         value: "__get_new_day_spawn_x".to_string(),
         default_value: None,
     };
-    assert_eq!(result, NewExpression::Named { name: token });
+    assert_eq!(result, Expression::Named { name: token });
 
     // Unary.
     let input = r#"
@@ -163,15 +158,15 @@ fn test_expression_de() {
     }
 }
     "#;
-    let result: NewExpression =
+    let result: Expression =
         serde_json::from_str(input).expect("failed to deserialize Expression::Unary");
-    let right_expr = NewExpression::Literal {
-        value: NewToken::Number { Value: 1.0 },
+    let right_expr = Expression::Literal {
+        value: Token::Number { value: 1.0 },
     };
     assert_eq!(
         result,
-        NewExpression::Unary {
-            operator: NewToken::Minus,
+        Expression::Unary {
+            operator: Token::Minus,
             right: Box::from(right_expr)
         }
     );
@@ -191,18 +186,18 @@ fn test_expression_de() {
     }
 }
     "#;
-    let result: NewExpression =
+    let result: Expression =
         serde_json::from_str(input).expect("failed to deserialize Expression::Binary");
-    let left_expr = NewExpression::Literal {
-        value: NewToken::Number { Value: 3.0 },
+    let left_expr = Expression::Literal {
+        value: Token::Number { value: 3.0 },
     };
-    let right_expr = NewExpression::Literal {
-        value: NewToken::Number { Value: 0.0 },
+    let right_expr = Expression::Literal {
+        value: Token::Number { value: 0.0 },
     };
     assert_eq!(
         result,
-        NewExpression::Binary {
-            operator: NewToken::DoubleEqual,
+        Expression::Binary {
+            operator: Token::DoubleEqual,
             left: Box::from(left_expr),
             right: Box::from(right_expr)
         }
@@ -242,33 +237,31 @@ fn test_expression_de() {
     }
 }
     "#;
-    let result: NewExpression =
+    let result: Expression =
         serde_json::from_str(input).expect("failed to deserialize Expression::Logical");
-    let left_expr = NewExpression::Binary {
-        operator: NewToken::DoubleEqual,
-        left: Box::from(NewExpression::Named {
-            name: NewToken::Identifier {
+    let left_expr = Expression::Binary {
+        operator: Token::DoubleEqual,
+        left: Box::from(Expression::Named {
+            name: Token::Identifier {
                 value: "ari_health".to_string(),
                 default_value: None,
             },
         }),
-        right: Box::from(NewExpression::Literal {
-            value: NewToken::Number { Value: 0.0 },
+        right: Box::from(Expression::Literal {
+            value: Token::Number { value: 0.0 },
         }),
     };
-    let right_expr = NewExpression::Binary {
-        operator: NewToken::DoubleEqual,
-        left: Box::from(NewExpression::Literal {
-            value: NewToken::False,
+    let right_expr = Expression::Binary {
+        operator: Token::DoubleEqual,
+        left: Box::from(Expression::Literal {
+            value: Token::False,
         }),
-        right: Box::from(NewExpression::Literal {
-            value: NewToken::True,
-        }),
+        right: Box::from(Expression::Literal { value: Token::True }),
     };
     assert_eq!(
         result,
-        NewExpression::Logical {
-            operator: NewToken::And,
+        Expression::Logical {
+            operator: Token::And,
             left: Box::from(left_expr),
             right: Box::from(right_expr)
         }
@@ -288,20 +281,18 @@ fn test_expression_de() {
     }
 }
     "#;
-    let result: NewExpression =
+    let result: Expression =
         serde_json::from_str(input).expect("failed to deserialize Expression::Assign");
     assert_eq!(
         result,
-        NewExpression::Assign {
-            name: Box::from(NewExpression::Named {
-                name: NewToken::Identifier {
+        Expression::Assign {
+            name: Box::from(Expression::Named {
+                name: Token::Identifier {
                     value: "lemonade".to_string(),
                     default_value: None
                 }
             }),
-            value: Box::from(NewExpression::Literal {
-                value: NewToken::True
-            })
+            value: Box::from(Expression::Literal { value: Token::True })
         }
     );
 
@@ -319,13 +310,13 @@ fn test_expression_de() {
     "args": []
 }
     "#;
-    let result: NewExpression =
+    let result: Expression =
         serde_json::from_str(input).expect("failed to deserialize Expression::Call");
     assert_eq!(
         result,
-        NewExpression::Call {
-            call: Box::from(NewExpression::Named {
-                name: NewToken::Identifier {
+        Expression::Call {
+            call: Box::from(Expression::Named {
+                name: Token::Identifier {
                     value: "get_response".to_string(),
                     default_value: None
                 }
@@ -354,25 +345,25 @@ fn test_expression_de() {
     }
 }
     "#;
-    let result: NewExpression =
+    let result: Expression =
         serde_json::from_str(input).expect("failed to deserialize Expression::Grouping");
-    let left_expr = NewExpression::Named {
-        name: NewToken::Identifier {
+    let left_expr = Expression::Named {
+        name: Token::Identifier {
             value: "target_time".to_string(),
             default_value: None,
         },
     };
-    let right_expr = NewExpression::Named {
-        name: NewToken::Identifier {
+    let right_expr = Expression::Named {
+        name: Token::Identifier {
             value: "start".to_string(),
             default_value: None,
         },
     };
     assert_eq!(
         result,
-        NewExpression::Grouping {
-            expr: Box::from(NewExpression::Binary {
-                operator: NewToken::Minus,
+        Expression::Grouping {
+            expr: Box::from(Expression::Binary {
+                operator: Token::Minus,
                 left: Box::from(left_expr),
                 right: Box::from(right_expr)
             }),
@@ -383,39 +374,34 @@ fn test_expression_de() {
 #[test]
 fn test_expression_format_human() {
     // Literals.
-    let input = NewExpression::Literal {
-        value: NewToken::True,
-    };
-    let ir = r#"{"expr_type": "Literal", "value": {"token_type": "True"}}"#;
+    let input = Expression::Literal { value: Token::True };
     assert_eq!(format!("{}", input), "true");
 
     // Unary.
-    let input = NewExpression::Unary {
-        operator: NewToken::Minus,
-        right: Box::from(NewExpression::Literal {
-            value: NewToken::Number { Value: 1.3 },
+    let input = Expression::Unary {
+        operator: Token::Minus,
+        right: Box::from(Expression::Literal {
+            value: Token::Number { value: 1.3 },
         }),
     };
     assert_eq!(format!("{}", input), "-1.3");
 
     // Assign.
-    let input = NewExpression::Assign {
-        name: Box::from(NewExpression::Named {
-            name: NewToken::Identifier {
+    let input = Expression::Assign {
+        name: Box::from(Expression::Named {
+            name: Token::Identifier {
                 value: "lemonade".to_string(),
                 default_value: None,
             },
         }),
-        value: Box::from(NewExpression::Literal {
-            value: NewToken::True,
-        }),
+        value: Box::from(Expression::Literal { value: Token::True }),
     };
     assert_eq!(format!("{}", input), "lemonade = true");
 
     // Call.
-    let input = NewExpression::Call {
-        call: Box::from(NewExpression::Named {
-            name: NewToken::Identifier {
+    let input = Expression::Call {
+        call: Box::from(Expression::Named {
+            name: Token::Identifier {
                 value: "get_response".to_string(),
                 default_value: None,
             },
@@ -424,15 +410,15 @@ fn test_expression_format_human() {
     };
     assert_eq!(format!("{}", input), "get_response()");
 
-    let input = NewExpression::Call {
-        call: Box::from(NewExpression::Named {
-            name: NewToken::Identifier {
+    let input = Expression::Call {
+        call: Box::from(Expression::Named {
+            name: Token::Identifier {
                 value: "scene".to_string(),
                 default_value: None,
             },
         }),
-        args: vec![NewExpression::Named {
-            name: NewToken::Identifier {
+        args: vec![Expression::Named {
+            name: Token::Identifier {
                 value: "farm".to_string(),
                 default_value: None,
             },
@@ -440,22 +426,22 @@ fn test_expression_format_human() {
     };
     assert_eq!(format!("{}", input), "scene(farm)");
 
-    let input = NewExpression::Call {
-        call: Box::from(NewExpression::Named {
-            name: NewToken::Identifier {
+    let input = Expression::Call {
+        call: Box::from(Expression::Named {
+            name: Token::Identifier {
                 value: "walk_slow".to_string(),
                 default_value: None,
             },
         }),
         args: vec![
-            NewExpression::Named {
-                name: NewToken::Identifier {
+            Expression::Named {
+                name: Token::Identifier {
                     value: "eiland".to_string(),
                     default_value: None,
                 },
             },
-            NewExpression::Named {
-                name: NewToken::Identifier {
+            Expression::Named {
+                name: Token::Identifier {
                     value: "dz_eiland_journal".to_string(),
                     default_value: None,
                 },
@@ -465,17 +451,17 @@ fn test_expression_format_human() {
     assert_eq!(format!("{}", input), "walk_slow(eiland, dz_eiland_journal)");
 
     // Grouping.
-    let input = NewExpression::Grouping {
-        expr: Box::from(NewExpression::Binary {
-            operator: NewToken::Minus,
-            left: Box::from(NewExpression::Named {
-                name: NewToken::Identifier {
+    let input = Expression::Grouping {
+        expr: Box::from(Expression::Binary {
+            operator: Token::Minus,
+            left: Box::from(Expression::Named {
+                name: Token::Identifier {
                     value: "target_time".to_string(),
                     default_value: None,
                 },
             }),
-            right: Box::from(NewExpression::Named {
-                name: NewToken::Identifier {
+            right: Box::from(Expression::Named {
+                name: Token::Identifier {
                     value: "start".to_string(),
                     default_value: None,
                 },

@@ -1,59 +1,58 @@
-use crate::tokens::NewToken;
+use crate::tokens::Token;
 use std::fmt;
 use std::fmt::Formatter;
 
-use crate::expressions::NewExpression;
-use serde::de::IntoDeserializer;
-use serde::{Deserialize, Deserializer, Serialize};
+use crate::expressions::Expression;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(untagged)]
 pub enum OptionalStatement {
     #[serde(rename = "null")]
     NullString, // The "null".
-    BlockStatement(Box<NewStatement>),
+    BlockStatement(Box<Statement>),
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(tag = "stmt_type")]
-pub enum NewStatement {
+pub enum Statement {
     Block {
-        stmts: Vec<NewStatement>,
+        stmts: Vec<Statement>,
     },
     Expr {
-        expr: Box<NewExpression>,
+        expr: Box<Expression>,
     },
     Function {
-        name: NewToken,
-        params: Vec<NewToken>,
-        body: Box<NewStatement>,
+        name: Token,
+        params: Vec<Token>,
+        body: Box<Statement>,
         resolve: Option<OptionalStatement>,
     },
     Var {
-        name: NewToken,
-        initializer: NewExpression,
+        name: Token,
+        initializer: Expression,
     },
     Simultaneous {
-        body: Box<NewStatement>,
+        body: Box<Statement>,
     },
     Free {
-        stmt: Box<NewStatement>,
+        stmt: Box<Statement>,
     },
     If {
-        condition: NewExpression,
-        then_branch: Box<NewStatement>,
+        condition: Expression,
+        then_branch: Box<Statement>,
         else_branch: Option<OptionalStatement>,
     },
     Return {
-        value: Option<NewExpression>,
+        value: Option<Expression>,
     },
 }
 
-impl NewStatement {
+impl Statement {
     pub(crate) fn free_has_block_statement(&self) -> bool {
         match self {
-            NewStatement::Free { stmt } => match *(*stmt) {
-                NewStatement::Block { .. } => true,
+            Statement::Free { stmt } => match *(*stmt) {
+                Statement::Block { .. } => true,
                 _ => false,
             },
             _ => false,
@@ -62,21 +61,21 @@ impl NewStatement {
 
     pub(crate) fn fmt_indented(
         &self,
-        f: &mut std::fmt::Formatter<'_>,
+        f: &mut Formatter<'_>,
         indent: usize,
-    ) -> std::fmt::Result {
+    ) -> fmt::Result {
         let current_indent = " ".repeat(indent * 4);
 
         write!(f, "{}", current_indent)?;
 
         match self {
-            NewStatement::Block { stmts } => {
+            Statement::Block { stmts } => {
                 writeln!(f, "{{")?;
                 if stmts.len() == 0 {
                     // E.g. an empty function that is used for its "resolve".
                     // write!(f, "stmts has zero length!!!");
                 }
-                for (index, stmt) in stmts.iter().enumerate() {
+                for stmt in stmts {
                     // Handle the indentation and reset the indent level.
                     write!(f, "{}", " ".repeat((indent + 1) * 4))?;
                     stmt.fmt_indented(f, 0)?;
@@ -89,8 +88,8 @@ impl NewStatement {
                 }
                 writeln!(f, "{}}}", current_indent)
             }
-            NewStatement::Expr { expr } => expr.fmt_indented(f, indent),
-            NewStatement::Function {
+            Statement::Expr { expr } => expr.fmt_indented(f, indent),
+            Statement::Function {
                 name,
                 params,
                 body,
@@ -122,7 +121,7 @@ impl NewStatement {
                 }
                 Ok(())
             }
-            NewStatement::Var { name, initializer } => {
+            Statement::Var { name, initializer } => {
                 write!(f, "var ")?;
                 name.fmt_indented(f, 0)?;
                 write!(f, " = ")?;
@@ -130,14 +129,14 @@ impl NewStatement {
                 // a Var statement in a block will get its ;\m handled by the block.
                 // However, the top level container needs to handle the ";\n" line end.
             }
-            NewStatement::Simultaneous { body } => {
+            Statement::Simultaneous { body } => {
                 writeln!(f, "simultaneous")?;
                 body.fmt_indented(f, indent)
             }
-            NewStatement::Free { stmt } => {
+            Statement::Free { stmt } => {
                 write!(f, "free")?;
                 match stmt.as_ref() {
-                    NewStatement::Block { .. } => {
+                    Statement::Block { .. } => {
                         write!(f, "\n")?;
                         stmt.as_ref().fmt_indented(f, indent)
                     }
@@ -147,7 +146,7 @@ impl NewStatement {
                     }
                 }
             }
-            NewStatement::If {
+            Statement::If {
                 condition,
                 then_branch,
                 else_branch,
@@ -168,7 +167,7 @@ impl NewStatement {
 
                 Ok(())
             }
-            NewStatement::Return { value } => {
+            Statement::Return { value } => {
                 write!(f, "return ")?;
                 if let Some(v) = value {
                     v.fmt_indented(f, 0)
@@ -181,7 +180,7 @@ impl NewStatement {
     }
 }
 
-impl fmt::Display for NewStatement {
+impl fmt::Display for Statement {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.fmt_indented(f, 0)
     }
@@ -191,9 +190,9 @@ impl fmt::Display for NewStatement {
 fn test_statement_de() {
     // Blocks.
     let input = r#"{"stmt_type": "Block", "stmts": []}"#;
-    let result: NewStatement =
+    let result: Statement =
         serde_json::from_str(input).expect("failed to deserialize Statement::Block (empty)");
-    assert_eq!(result, NewStatement::Block { stmts: vec!() });
+    assert_eq!(result, Statement::Block { stmts: vec!() });
 
     let input = r#"
 {
@@ -203,14 +202,14 @@ fn test_statement_de() {
     ]
 }
     "#;
-    let result: NewStatement =
+    let result: Statement =
         serde_json::from_str(input).expect("failed to deserialize Statement::Block (one return)");
     assert_eq!(
         result,
-        NewStatement::Block {
-            stmts: vec!(NewStatement::Return {
-                value: Some(NewExpression::Named {
-                    name: NewToken::Identifier {
+        Statement::Block {
+            stmts: vec!(Statement::Return {
+                value: Some(Expression::Named {
+                    name: Token::Identifier {
                         value: "target_time".to_string(),
                         default_value: None
                     }
@@ -248,30 +247,30 @@ fn test_statement_de() {
     }
 }
     "#;
-    let result: NewStatement = serde_json::from_str(input)
+    let result: Statement = serde_json::from_str(input)
         .expect("failed to deserialize Statement::Return start + timer == target_time");
     assert_eq!(
         result,
-        NewStatement::Return {
-            value: Some(NewExpression::Binary {
-                operator: NewToken::DoubleEqual,
-                left: Box::from(NewExpression::Binary {
-                    operator: NewToken::Plus,
-                    left: Box::from(NewExpression::Named {
-                        name: NewToken::Identifier {
+        Statement::Return {
+            value: Some(Expression::Binary {
+                operator: Token::DoubleEqual,
+                left: Box::from(Expression::Binary {
+                    operator: Token::Plus,
+                    left: Box::from(Expression::Named {
+                        name: Token::Identifier {
                             value: "start".to_string(),
                             default_value: None
                         }
                     }),
-                    right: Box::from(NewExpression::Named {
-                        name: NewToken::Identifier {
+                    right: Box::from(Expression::Named {
+                        name: Token::Identifier {
                             value: "timer".to_string(),
                             default_value: None
                         }
                     }),
                 }),
-                right: Box::from(NewExpression::Named {
-                    name: NewToken::Identifier {
+                right: Box::from(Expression::Named {
+                    name: Token::Identifier {
                         value: "target_time".to_string(),
                         default_value: None
                     }
@@ -284,16 +283,16 @@ fn test_statement_de() {
 #[test]
 fn test_statement_format_human() {
     // Function.
-    let input = NewStatement::Function {
-        name: NewToken::Identifier {
+    let input = Statement::Function {
+        name: Token::Identifier {
             value: "hello".to_string(),
             default_value: None,
         },
         params: vec![],
-        body: Box::from(NewStatement::Block {
-            stmts: vec![NewStatement::Return {
-                value: Some(NewExpression::Literal {
-                    value: NewToken::String {
+        body: Box::from(Statement::Block {
+            stmts: vec![Statement::Return {
+                value: Some(Expression::Literal {
+                    value: Token::String {
                         value: "world!".to_string(),
                     },
                 }),
@@ -311,28 +310,28 @@ fn test_statement_format_human() {
     );
 
     // Var.
-    let var_stmt = NewStatement::Var {
-        name: NewToken::Identifier {
+    let var_stmt = Statement::Var {
+        name: Token::Identifier {
             value: "timer".to_string(),
             default_value: None,
         },
-        initializer: NewExpression::Binary {
-            operator: NewToken::Star,
-            left: Box::from(NewExpression::Named {
-                name: NewToken::Identifier {
+        initializer: Expression::Binary {
+            operator: Token::Star,
+            left: Box::from(Expression::Named {
+                name: Token::Identifier {
                     value: "seconds".to_string(),
                     default_value: None,
                 },
             }),
-            right: Box::from(NewExpression::Literal {
-                value: NewToken::Number { Value: 60.0 },
+            right: Box::from(Expression::Literal {
+                value: Token::Number { value: 60.0 },
             }),
         },
     };
     // This one is at the top-level, so no ";\n" is expected.
     assert_eq!(format!("{}", var_stmt), r#"var timer = seconds * 60"#);
 
-    let input = NewStatement::Block {
+    let input = Statement::Block {
         stmts: vec![var_stmt],
     };
     // This is Var in a Block, so ";\n" is expected.
@@ -345,25 +344,25 @@ fn test_statement_format_human() {
     );
 
     // Simultaneous.
-    let input = NewStatement::Simultaneous {
-        body: Box::from(NewStatement::Block {
-            stmts: vec![NewStatement::Expr {
-                expr: Box::from(NewExpression::Call {
-                    call: Box::from(NewExpression::Named {
-                        name: NewToken::Identifier {
+    let input = Statement::Simultaneous {
+        body: Box::from(Statement::Block {
+            stmts: vec![Statement::Expr {
+                expr: Box::from(Expression::Call {
+                    call: Box::from(Expression::Named {
+                        name: Token::Identifier {
                             value: "animate".to_string(),
                             default_value: None,
                         },
                     }),
                     args: vec![
-                        NewExpression::Literal {
-                            value: NewToken::Identifier {
+                        Expression::Literal {
+                            value: Token::Identifier {
                                 value: "adeline".to_string(),
                                 default_value: None,
                             },
                         },
-                        NewExpression::Literal {
-                            value: NewToken::Identifier {
+                        Expression::Literal {
+                            value: Token::Identifier {
                                 value: "idle".to_string(),
                                 default_value: None,
                             },
@@ -383,24 +382,24 @@ fn test_statement_format_human() {
     );
 
     // Free.
-    let input = NewStatement::Free {
-        stmt: Box::from(NewStatement::Expr {
-            expr: Box::from(NewExpression::Call {
-                call: Box::from(NewExpression::Named {
-                    name: NewToken::Identifier {
+    let input = Statement::Free {
+        stmt: Box::from(Statement::Expr {
+            expr: Box::from(Expression::Call {
+                call: Box::from(Expression::Named {
+                    name: Token::Identifier {
                         value: "bark_speech".to_string(),
                         default_value: None,
                     },
                 }),
                 args: vec![
-                    NewExpression::Literal {
-                        value: NewToken::Identifier {
+                    Expression::Literal {
+                        value: Token::Identifier {
                             value: "adeline".to_string(),
                             default_value: None,
                         },
                     },
-                    NewExpression::Literal {
-                        value: NewToken::Identifier {
+                    Expression::Literal {
+                        value: Token::Identifier {
                             value: "exclamation_mark".to_string(),
                             default_value: None,
                         },
@@ -415,33 +414,33 @@ fn test_statement_format_human() {
     );
 
     // If.
-    let input = NewStatement::If {
-        condition: NewExpression::Binary {
-            operator: NewToken::DoubleEqual,
-            left: Box::from(NewExpression::Call {
-                call: Box::from(NewExpression::Named {
-                    name: NewToken::Identifier {
+    let input = Statement::If {
+        condition: Expression::Binary {
+            operator: Token::DoubleEqual,
+            left: Box::from(Expression::Call {
+                call: Box::from(Expression::Named {
+                    name: Token::Identifier {
                         value: "get_response".to_string(),
                         default_value: None,
                     },
                 }),
                 args: vec![],
             }),
-            right: Box::from(NewExpression::Literal {
-                value: NewToken::Number { Value: 0.0 },
+            right: Box::from(Expression::Literal {
+                value: Token::Number { value: 0.0 },
             }),
         },
-        then_branch: Box::from(NewStatement::Block {
-            stmts: vec![NewStatement::Expr {
-                expr: Box::from(NewExpression::Call {
-                    call: Box::from(NewExpression::Named {
-                        name: NewToken::Identifier {
+        then_branch: Box::from(Statement::Block {
+            stmts: vec![Statement::Expr {
+                expr: Box::from(Expression::Call {
+                    call: Box::from(Expression::Named {
+                        name: Token::Identifier {
                             value: "wait".to_string(),
                             default_value: None,
                         },
                     }),
-                    args: vec![NewExpression::Literal {
-                        value: NewToken::Number { Value: 1.0 },
+                    args: vec![Expression::Literal {
+                        value: Token::Number { value: 1.0 },
                     }],
                 }),
             }],

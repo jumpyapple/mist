@@ -1,31 +1,32 @@
-use crate::expressions::NewExpression;
+use crate::expressions::Expression;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(untagged)]
-pub enum NewDefaultValue {
+pub enum DefaultValue {
     #[serde(rename = "null")]
     // The "null". The String is needed for serde to capture the "null".
     NullStringDefault(String),
     // Has to be Expression because the default value can be an Expression::Literal.
-    ExpressionDefault(Box<NewExpression>),
+    ExpressionDefault(Box<Expression>),
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(tag = "token_type")]
-pub(crate) enum NewToken {
+pub(crate) enum Token {
     True,
     False,
     Number {
-        Value: f64,
+        #[serde(rename = "Value")]
+        value: f64,
     },
     String {
         value: String,
     },
     Identifier {
         value: String,
-        default_value: Option<NewDefaultValue>,
+        default_value: Option<DefaultValue>,
     },
 
     // Operators.
@@ -45,26 +46,26 @@ pub(crate) enum NewToken {
     Bang,
 }
 
-impl NewToken {
+impl Token {
     pub(crate) fn fmt_indented(
         &self,
-        f: &mut std::fmt::Formatter<'_>,
-        indent: usize,
-    ) -> std::fmt::Result {
+        f: &mut fmt::Formatter<'_>,
+        _indent: usize,
+    ) -> fmt::Result {
         match self {
-            NewToken::True => write!(f, "true"),
-            NewToken::False => write!(f, "false"),
-            NewToken::Number { Value } => write!(f, "{}", Value),
-            NewToken::String { value } => write!(f, "\"{}\"", value),
-            NewToken::Identifier {
+            Token::True => write!(f, "true"),
+            Token::False => write!(f, "false"),
+            Token::Number { value: Value } => write!(f, "{}", Value),
+            Token::String { value } => write!(f, "\"{}\"", value),
+            Token::Identifier {
                 value,
                 default_value,
             } => {
                 write!(f, "{}", value)?;
                 if let Some(v) = default_value {
                     match v {
-                        NewDefaultValue::NullStringDefault(_) => write!(f, " = null")?,
-                        NewDefaultValue::ExpressionDefault(exp) => {
+                        DefaultValue::NullStringDefault(_) => write!(f, " = null")?,
+                        DefaultValue::ExpressionDefault(exp) => {
                             write!(f, " = ")?;
                             exp.fmt_indented(f, 0)?;
                         }
@@ -72,23 +73,23 @@ impl NewToken {
                 }
                 Ok(())
             }
-            NewToken::DoubleEqual => write!(f, "=="),
-            NewToken::BangEqual => write!(f, "!="),
-            NewToken::LessEqual => write!(f, "<="),
-            NewToken::Less => write!(f, "<"),
-            NewToken::GreaterEqual => write!(f, ">="),
-            NewToken::Greater => write!(f, ">"),
-            NewToken::Plus => write!(f, "+"),
-            NewToken::Minus => write!(f, "-"),
-            NewToken::Star => write!(f, "*"),
-            NewToken::Slash => write!(f, "/"),
-            NewToken::And => write!(f, "&&"),
-            NewToken::Bang => write!(f, "!"),
+            Token::DoubleEqual => write!(f, "=="),
+            Token::BangEqual => write!(f, "!="),
+            Token::LessEqual => write!(f, "<="),
+            Token::Less => write!(f, "<"),
+            Token::GreaterEqual => write!(f, ">="),
+            Token::Greater => write!(f, ">"),
+            Token::Plus => write!(f, "+"),
+            Token::Minus => write!(f, "-"),
+            Token::Star => write!(f, "*"),
+            Token::Slash => write!(f, "/"),
+            Token::And => write!(f, "&&"),
+            Token::Bang => write!(f, "!"),
         }
     }
 }
 
-impl fmt::Display for NewToken {
+impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.fmt_indented(f, 0)
     }
@@ -97,59 +98,59 @@ impl fmt::Display for NewToken {
 #[test]
 fn test_tokens_de() {
     let input = r#"{ "token_type": "Number", "Value": 0.99 }"#;
-    let result: NewToken = serde_json::from_str(input).expect("failed to deserialize Number");
-    assert_eq!(result, NewToken::Number { Value: 0.99 });
+    let result: Token = serde_json::from_str(input).expect("failed to deserialize Number");
+    assert_eq!(result, Token::Number { value: 0.99 });
 
     let input = r#"{ "token_type": "String", "value": "Music/Jingles/GoToSleep"}"#;
-    let result: NewToken = serde_json::from_str(input).expect("failed to deserialize String");
+    let result: Token = serde_json::from_str(input).expect("failed to deserialize String");
     assert_eq!(
         result,
-        NewToken::String {
+        Token::String {
             value: "Music/Jingles/GoToSleep".to_string()
         }
     );
 
     let input = r#"{"token_type": "Identifier", "value": "__get_new_day_spawn_x" }"#;
-    let result: NewToken = serde_json::from_str(input).expect("failed to deserialize Identifier");
+    let result: Token = serde_json::from_str(input).expect("failed to deserialize Identifier");
     assert_eq!(
         result,
-        NewToken::Identifier {
+        Token::Identifier {
             value: "__get_new_day_spawn_x".to_string(),
             default_value: None
         }
     );
 
     let input = r#"{ "token_type": "Identifier", "value": "dir", "default_value": "null" }"#;
-    let result: NewToken = serde_json::from_str(input)
+    let result: Token = serde_json::from_str(input)
         .expect("failed to deserialize Identifier (with default value = \"null\")");
     assert_eq!(
         result,
-        NewToken::Identifier {
+        Token::Identifier {
             value: "dir".to_string(),
-            default_value: Some(NewDefaultValue::NullStringDefault("null".to_string()))
+            default_value: Some(DefaultValue::NullStringDefault("null".to_string()))
         }
     );
 
     let input = r#"{"token_type": "DoubleEqual"}"#;
-    let result: NewToken = serde_json::from_str(input).expect("failed to deserialize DoubleEqual");
-    assert_eq!(result, NewToken::DoubleEqual);
+    let result: Token = serde_json::from_str(input).expect("failed to deserialize DoubleEqual");
+    assert_eq!(result, Token::DoubleEqual);
 }
 
 #[test]
 fn test_token_format_human() {
-    let input = NewToken::String {
+    let input = Token::String {
         value: "hello".to_string(),
     };
     assert_eq!(format!("{}", input), "\"hello\"");
 
-    let input = NewToken::Identifier {
+    let input = Token::Identifier {
         value: "hello".to_string(),
-        default_value: Some(NewDefaultValue::NullStringDefault("null".to_string())),
+        default_value: Some(DefaultValue::NullStringDefault("null".to_string())),
     };
     assert_eq!(format!("{}", input), "hello = null");
 
-    let input = NewToken::Less;
+    let input = Token::Less;
     assert_eq!(format!("{}", input), "<");
-    let input = NewToken::And;
+    let input = Token::And;
     assert_eq!(format!("{}", input), "&&");
 }

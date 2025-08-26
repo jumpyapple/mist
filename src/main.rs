@@ -5,7 +5,7 @@ mod statements;
 mod tokens;
 
 use crate::cli::{Cli, Commands};
-use crate::statements::NewStatement;
+use crate::statements::Statement;
 use clap::Parser;
 use core::fmt;
 use serde::{Deserialize, Serialize};
@@ -31,7 +31,7 @@ impl MistContainer {
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
 struct Mist {
-    statements: Vec<NewStatement>,
+    statements: Vec<Statement>,
 }
 
 impl fmt::Display for Mist {
@@ -39,20 +39,20 @@ impl fmt::Display for Mist {
         for stmt in &self.statements {
             stmt.fmt_indented(f, 0)?;
             match stmt {
-                NewStatement::Block { .. } => write!(f, "")?,
-                NewStatement::Expr { .. } => write!(f, ";\n")?,
-                NewStatement::Function { .. } => write!(f, "\n")?,
-                NewStatement::Var { .. } => write!(f, ";\n")?,
-                NewStatement::Simultaneous { .. } => write!(f, "\n")?,
-                NewStatement::Free { stmt } => {
+                Statement::Block { .. } => write!(f, "")?,
+                Statement::Expr { .. } => write!(f, ";\n")?,
+                Statement::Function { .. } => write!(f, "\n")?,
+                Statement::Var { .. } => write!(f, ";\n")?,
+                Statement::Simultaneous { .. } => write!(f, "\n")?,
+                Statement::Free { stmt } => {
                     if stmt.free_has_block_statement() {
                         write!(f, "\n")?
                     } else {
                         write!(f, ";\n")?
                     }
                 }
-                NewStatement::If { .. } => write!(f, "\n")?,
-                NewStatement::Return { .. } => write!(f, "")?,
+                Statement::If { .. } => write!(f, "\n")?,
+                Statement::Return { .. } => write!(f, "")?,
             }
         }
         Ok(())
