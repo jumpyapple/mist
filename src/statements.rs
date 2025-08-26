@@ -28,7 +28,7 @@ pub enum Statement {
         name: Token,
         params: Vec<Token>,
         body: Box<Statement>,
-        resolve: Option<Optional>,
+        resolve: Optional,
     },
     Var {
         name: Token,
@@ -43,10 +43,10 @@ pub enum Statement {
     If {
         condition: Expression,
         then_branch: Box<Statement>,
-        else_branch: Option<Optional>,
+        else_branch: Optional,
     },
     Return {
-        value: Option<Optional>,
+        value: Optional,
     },
 }
 
@@ -59,6 +59,7 @@ impl Statement {
             },
             Statement::Block { .. } => true,
             Statement::Simultaneous { .. } => true,
+            Statement::If { .. } => true,
             _ => false,
         }
     }
@@ -110,17 +111,14 @@ impl Statement {
                 body.fmt_indented(f, indent)?;
 
                 // Not sure what syntax should look like.
-                if let Some(r) = resolve.as_ref() {
-                    match r {
-                        Optional::NullString(_) => write!(f, ""),
-                        Optional::OptionalStatement(stmt) => {
-                            writeln!(f, "=>")?;
-                            stmt.fmt_indented(f, indent)
-                        }
-                        _ => write!(f, "([!!] Did not expect OptionalExpression.)"),
-                    }?;
+                match resolve {
+                    Optional::NullString(_) => write!(f, ""),
+                    Optional::OptionalStatement(stmt) => {
+                        writeln!(f, "=>")?;
+                        stmt.fmt_indented(f, indent)
+                    }
+                    _ => write!(f, "([!!] Did not expect OptionalExpression.)"),
                 }
-                Ok(())
             }
             Statement::Var { name, initializer } => {
                 write!(f, "var ")?;
@@ -156,33 +154,26 @@ impl Statement {
                 condition.fmt_indented(f, 0)?;
                 writeln!(f, ")")?;
                 then_branch.fmt_indented(f, indent)?;
-                if let Some(opt_st) = else_branch {
-                    match opt_st {
-                        Optional::NullString(_) => (),
-                        Optional::OptionalStatement(st) => {
-                            writeln!(f, "{}else", current_indent)?;
-                            st.fmt_indented(f, indent)?;
-                        }
-                        _ => write!(f, "([!!] Did not expect OptionalExpression.)")?,
-                    }
-                }
 
-                Ok(())
+                match else_branch {
+                    Optional::NullString(_) => Ok(()),
+                    Optional::OptionalStatement(st) => {
+                        writeln!(f, "{}else", current_indent)?;
+                        st.fmt_indented(f, indent)
+                    }
+                    _ => write!(f, "([!!] Did not expect OptionalExpression.)"),
+                }
             }
             Statement::Return { value } => {
                 write!(f, "return ")?;
-                if let Some(v) = value {
-                    match v {
-                        Optional::NullString(_) => write!(f, "null"),
-                        Optional::OptionalExpression(expr) => expr.fmt_indented(f, 0),
-                        Optional::OptionalStatement(_) => {
-                            write!(f, "([!!] Statement is used with Return)")
-                        }
+                match value {
+                    Optional::NullString(_) => write!(f, "null"),
+                    Optional::OptionalExpression(expr) => expr.fmt_indented(f, 0),
+                    Optional::OptionalStatement(_) => {
+                        write!(f, "([!!] Statement is used with Return)")
                     }
-                    // ";\n" is handled by the Block.
-                } else {
-                    write!(f, "null")
                 }
+                // ";\n" is handled by the Block.
             }
         }
     }
@@ -216,12 +207,12 @@ fn test_statement_de() {
         result,
         Statement::Block {
             stmts: vec!(Statement::Return {
-                value: Some(Optional::OptionalExpression(Box::from(Expression::Named {
+                value: Optional::OptionalExpression(Box::from(Expression::Named {
                     name: Token::Identifier {
                         value: "target_time".to_string(),
                         default_value: None
                     }
-                })))
+                }))
             })
         }
     );
@@ -260,7 +251,7 @@ fn test_statement_de() {
     assert_eq!(
         result,
         Statement::Return {
-            value: Some(Optional::OptionalExpression(Box::from(
+            value: Optional::OptionalExpression(Box::from(
                 Expression::Binary {
                     operator: Token::DoubleEqual,
                     left: Box::from(Expression::Binary {
@@ -285,7 +276,7 @@ fn test_statement_de() {
                         }
                     }),
                 }
-            )))
+            ))
         }
     );
 
@@ -295,7 +286,7 @@ fn test_statement_de() {
     assert_eq!(
         result,
         Statement::Return {
-            value: Some(Optional::NullString("null".to_string()))
+            value: Optional::NullString("null".to_string())
         }
     );
 }
@@ -369,7 +360,7 @@ fn test_function_de_with_resolve_null() {
             name: func_name,
             params: vec![],
             body: Box::from(func_body),
-            resolve: Some(Optional::NullString("null".to_string())),
+            resolve: Optional::NullString("null".to_string()),
         }
     );
 }
@@ -463,7 +454,7 @@ fn test_function_de_with_resolve_statement() {
     };
     let resolve_body = Statement::Block {
         stmts: vec![Statement::Return {
-            value: Some(OptionalExpression(Box::from(Expression::Call {
+            value: OptionalExpression(Box::from(Expression::Call {
                 call: Box::from(Expression::Named {
                     name: Token::Identifier {
                         value: "quest_is_active".to_string(),
@@ -475,7 +466,7 @@ fn test_function_de_with_resolve_statement() {
                         value: "greet_the_townsfolk".to_string(),
                     },
                 }],
-            }))),
+            })),
         }],
     };
     let result: Statement = serde_json::from_str(input)
@@ -486,7 +477,7 @@ fn test_function_de_with_resolve_statement() {
             name: func_name,
             params: vec![],
             body: Box::from(func_body),
-            resolve: Some(Optional::OptionalStatement(Box::from(resolve_body))),
+            resolve: Optional::OptionalStatement(Box::from(resolve_body)),
         }
     );
 }
@@ -502,16 +493,16 @@ fn test_statement_format_human() {
         params: vec![],
         body: Box::from(Statement::Block {
             stmts: vec![Statement::Return {
-                value: Some(Optional::OptionalExpression(Box::from(
+                value: Optional::OptionalExpression(Box::from(
                     Expression::Literal {
                         value: Token::String {
                             value: "world!".to_string(),
                         },
                     },
-                ))),
+                )),
             }],
         }),
-        resolve: None,
+        resolve: Optional::NullString("null".to_string()),
     };
     assert_eq!(
         format!("{}", input),
@@ -658,7 +649,7 @@ fn test_statement_format_human() {
                 }),
             }],
         }),
-        else_branch: None,
+        else_branch: Optional::NullString("null".to_string()),
     };
     assert_eq!(
         format!("{}", input),
