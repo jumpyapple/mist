@@ -1,4 +1,4 @@
-use crate::tokens::Token;
+use crate::tokens::{BinaryOperator, Token, UnaryOperator};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -12,16 +12,16 @@ pub enum Expression {
         name: Token,
     },
     Unary {
-        operator: Token,
+        operator: UnaryOperator,
         right: Box<Expression>,
     },
     Binary {
-        operator: Token,
+        operator: BinaryOperator,
         left: Box<Expression>,
         right: Box<Expression>,
     },
     Logical {
-        operator: Token,
+        operator: BinaryOperator,
         left: Box<Expression>,
         right: Box<Expression>,
     },
@@ -162,7 +162,7 @@ fn test_expression_de() {
     assert_eq!(
         result,
         Expression::Unary {
-            operator: Token::Minus,
+            operator: UnaryOperator::Minus,
             right: Box::from(right_expr)
         }
     );
@@ -193,7 +193,7 @@ fn test_expression_de() {
     assert_eq!(
         result,
         Expression::Binary {
-            operator: Token::DoubleEqual,
+            operator: BinaryOperator::DoubleEqual,
             left: Box::from(left_expr),
             right: Box::from(right_expr)
         }
@@ -236,7 +236,7 @@ fn test_expression_de() {
     let result: Expression =
         serde_json::from_str(input).expect("failed to deserialize Expression::Logical");
     let left_expr = Expression::Binary {
-        operator: Token::DoubleEqual,
+        operator: BinaryOperator::DoubleEqual,
         left: Box::from(Expression::Named {
             name: Token::Identifier {
                 value: "ari_health".to_string(),
@@ -248,7 +248,7 @@ fn test_expression_de() {
         }),
     };
     let right_expr = Expression::Binary {
-        operator: Token::DoubleEqual,
+        operator: BinaryOperator::DoubleEqual,
         left: Box::from(Expression::Literal {
             value: Token::False,
         }),
@@ -257,7 +257,7 @@ fn test_expression_de() {
     assert_eq!(
         result,
         Expression::Logical {
-            operator: Token::And,
+            operator: BinaryOperator::And,
             left: Box::from(left_expr),
             right: Box::from(right_expr)
         }
@@ -359,7 +359,7 @@ fn test_expression_de() {
         result,
         Expression::Grouping {
             expr: Box::from(Expression::Binary {
-                operator: Token::Minus,
+                operator: BinaryOperator::Minus,
                 left: Box::from(left_expr),
                 right: Box::from(right_expr)
             }),
@@ -375,7 +375,7 @@ fn test_expression_format_human() {
 
     // Unary.
     let input = Expression::Unary {
-        operator: Token::Minus,
+        operator: UnaryOperator::Minus,
         right: Box::from(Expression::Literal {
             value: Token::Number { value: 1.3 },
         }),
@@ -449,7 +449,7 @@ fn test_expression_format_human() {
     // Grouping.
     let input = Expression::Grouping {
         expr: Box::from(Expression::Binary {
-            operator: Token::Minus,
+            operator: BinaryOperator::Minus,
             left: Box::from(Expression::Named {
                 name: Token::Identifier {
                     value: "target_time".to_string(),

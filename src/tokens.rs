@@ -4,6 +4,68 @@ use crate::statements::Statement::Expr;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[serde(tag = "token_type")]
+pub(crate) enum UnaryOperator {
+    Minus,
+    Bang,
+}
+
+impl UnaryOperator {
+    pub(crate) fn fmt_indented(&self, f: &mut fmt::Formatter<'_>, _indent: usize) -> fmt::Result {
+        match self {
+            UnaryOperator::Minus => write!(f, "-"),
+            UnaryOperator::Bang => write!(f, "!"),
+        }
+    }
+}
+
+impl fmt::Display for UnaryOperator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.fmt_indented(f, 0)
+    }
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[serde(tag = "token_type")]
+pub(crate) enum BinaryOperator {
+    DoubleEqual,
+    BangEqual,
+    LessEqual,
+    Less,
+    GreaterEqual,
+    Greater,
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    And,
+}
+
+impl BinaryOperator {
+    pub(crate) fn fmt_indented(&self, f: &mut fmt::Formatter<'_>, _indent: usize) -> fmt::Result {
+        match self {
+            BinaryOperator::DoubleEqual => write!(f, "=="),
+            BinaryOperator::BangEqual => write!(f, "!="),
+            BinaryOperator::LessEqual => write!(f, "<="),
+            BinaryOperator::Less => write!(f, "<"),
+            BinaryOperator::GreaterEqual => write!(f, ">="),
+            BinaryOperator::Greater => write!(f, ">"),
+            BinaryOperator::Plus => write!(f, "+"),
+            BinaryOperator::Minus => write!(f, "-"),
+            BinaryOperator::Star => write!(f, "*"),
+            BinaryOperator::Slash => write!(f, "/"),
+            BinaryOperator::And => write!(f, "&&"),
+        }
+    }
+}
+
+impl fmt::Display for BinaryOperator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.fmt_indented(f, 0)
+    }
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(tag = "token_type")]
 pub(crate) enum Token {
@@ -18,24 +80,9 @@ pub(crate) enum Token {
     },
     Identifier {
         value: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
         default_value: Option<Optional>,
-    },
-
-    // Operators.
-    DoubleEqual,
-    BangEqual,
-    LessEqual,
-    Less,
-    GreaterEqual,
-    Greater,
-    Plus,
-    Minus,
-    Star,
-    Slash,
-    And,
-
-    // Unary Operators.
-    Bang,
+    }
 }
 
 impl Token {
@@ -62,18 +109,6 @@ impl Token {
                 }
                 Ok(())
             }
-            Token::DoubleEqual => write!(f, "=="),
-            Token::BangEqual => write!(f, "!="),
-            Token::LessEqual => write!(f, "<="),
-            Token::Less => write!(f, "<"),
-            Token::GreaterEqual => write!(f, ">="),
-            Token::Greater => write!(f, ">"),
-            Token::Plus => write!(f, "+"),
-            Token::Minus => write!(f, "-"),
-            Token::Star => write!(f, "*"),
-            Token::Slash => write!(f, "/"),
-            Token::And => write!(f, "&&"),
-            Token::Bang => write!(f, "!"),
         }
     }
 }
@@ -121,8 +156,8 @@ fn test_tokens_de() {
     );
 
     let input = r#"{"token_type": "DoubleEqual"}"#;
-    let result: Token = serde_json::from_str(input).expect("failed to deserialize DoubleEqual");
-    assert_eq!(result, Token::DoubleEqual);
+    let result: BinaryOperator = serde_json::from_str(input).expect("failed to deserialize DoubleEqual");
+    assert_eq!(result, BinaryOperator::DoubleEqual);
 }
 
 #[test]
@@ -177,8 +212,8 @@ fn test_token_format_human() {
     };
     assert_eq!(format!("{}", input), "hello = null");
 
-    let input = Token::Less;
+    let input = BinaryOperator::Less;
     assert_eq!(format!("{}", input), "<");
-    let input = Token::And;
+    let input = BinaryOperator::And;
     assert_eq!(format!("{}", input), "&&");
 }

@@ -1,4 +1,4 @@
-use crate::tokens::Token;
+use crate::tokens::{BinaryOperator, Token};
 use std::{fmt, fs};
 use std::fmt::Formatter;
 
@@ -253,9 +253,9 @@ fn test_statement_de() {
         Statement::Return {
             value: Optional::OptionalExpression(Box::from(
                 Expression::Binary {
-                    operator: Token::DoubleEqual,
+                    operator: BinaryOperator::DoubleEqual,
                     left: Box::from(Expression::Binary {
-                        operator: Token::Plus,
+                        operator: BinaryOperator::Plus,
                         left: Box::from(Expression::Named {
                             name: Token::Identifier {
                                 value: "start".to_string(),
@@ -520,7 +520,7 @@ fn test_statement_format_human() {
             default_value: None,
         },
         initializer: Expression::Binary {
-            operator: Token::Star,
+            operator: BinaryOperator::Star,
             left: Box::from(Expression::Named {
                 name: Token::Identifier {
                     value: "seconds".to_string(),
@@ -620,7 +620,7 @@ fn test_statement_format_human() {
     // If.
     let input = Statement::If {
         condition: Expression::Binary {
-            operator: Token::DoubleEqual,
+            operator: BinaryOperator::DoubleEqual,
             left: Box::from(Expression::Call {
                 call: Box::from(Expression::Named {
                     name: Token::Identifier {
